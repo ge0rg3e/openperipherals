@@ -1,55 +1,77 @@
-// Shared application state - a vendor-agnostic controller facade used across views.
-import { writable } from 'svelte/store';
-import { KeyboardController, type DeviceInfo, type EffectParams } from './controller';
-import { LogitechKeyboardController, type LogitechDeviceInfo } from './logitech/controller';
+// Shared application state - a multi-device workspace where keyboards and
+// mice are managed side by side as independent sessions.
+import { get, writable } from 'svelte/store';
+import { KeyboardController, type EffectParams } from './controller';
+import { LogitechKeyboardController } from './logitech/controller';
 import { LOGITECH_VID } from './logitech/constants';
 import { LOGITECH_SUPPORTED_PIDS } from './logitech/devices';
-import { RedragonKeyboardController, type RedragonDeviceInfo } from './redragon/controller';
+import { RedragonKeyboardController } from './redragon/controller';
 import { REDRAGON_VID } from './redragon/constants';
 import { REDRAGON_SUPPORTED_PIDS } from './redragon/devices';
 import { getKeyboard } from './razer/devices';
 import { logger } from './razer/logger';
 import { WebHidTransport } from './razer/transport';
+import {
+	MOUSE_HID_FILTERS,
+	createMouseClient,
+	deviceBrandOf,
+	type MouseDriver,
+	type MouseLighting,
+	type MouseStatus
+} from './mouse';
+import type { MouseHidDevice } from './mouse/webhid';
+import { DemoKeyboardController, DemoMouseDriver } from './demo';
 
-export type Vendor = 'razer' | 'logitech' | 'redragon';
+export type { MouseDriver, MouseLighting, MouseStatus } from './mouse';
 
-export type ConnectedDevice = (DeviceInfo & { vendor: 'razer' }) | LogitechDeviceInfo | RedragonDeviceInfo;
+// --- Workspace sessions ---
 
-/** The subset of a vendor controller the UI talks to. */
-export interface AppController {
-	readonly connected: boolean;
-	apply(params: EffectParams): Promise<void>;
-	setBrightness(value: number): Promise<void>;
-	setGameMode(enabled: boolean): Promise<void>;
-	setMacroLeds(enabled: boolean): Promise<void>;
+export interface KeyboardSession {
+	id: string;
+	kind: 'keyboard';
+	vendor: 'razer' | 'logitech' | 'redragon';
+	pid: number;
+	name: string;
+	serial?: string;
+	firmware?: string;
+	/** Stable identity used to avoid connecting the same physical device twice. */
+	deviceKey: string;
+	controller: KeyboardController | LogitechKeyboardController | RedragonKeyboardController | DemoKeyboardController;
+	/** Vendor-tagged device info, including the per-brand capability spec. */
+	info:
+		| (import('./controller').DeviceInfo & { vendor: 'razer' })
+		| import('./logitech/controller').LogitechDeviceInfo
+		| import('./redragon/controller').RedragonDeviceInfo;
 }
 
-export const razerController = new KeyboardController();
-export const logitechController = new LogitechKeyboardController();
-export const redragonController = new RedragonKeyboardController();
+export interface MouseSession {
+	id: string;
+	kind: 'mouse';
+	brand: string;
+	pid: number;
+	name: string;
+	serial?: string;
+	deviceKey: string;
+	client: MouseDriver;
+	status: MouseStatus;
+	dpiOptions: number[];
+	busy: boolean;
+}
 
-let active: KeyboardController | LogitechKeyboardController | RedragonKeyboardController | null = null;
+export type DeviceSession = KeyboardSession | MouseSession;
 
-export const controller: AppController = {
-	get connected(): boolean {
-		return !!active?.connected;
-	},
-	apply(params: EffectParams): Promise<void> {
-		return active ? active.apply(params) : Promise.reject(new Error('Not connected.'));
-	},
-	setBrightness(value: number): Promise<void> {
-		return active ? active.setBrightness(value) : Promise.reject(new Error('Not connected.'));
-	},
-	setGameMode(enabled: boolean): Promise<void> {
-		return active ? active.setGameMode(enabled) : Promise.reject(new Error('Not connected.'));
-	},
-	setMacroLeds(enabled: boolean): Promise<void> {
-		return active ? active.setMacroLeds(enabled) : Promise.reject(new Error('Not connected.'));
-	}
-};
+/** One picker request lists every brand this app can drive. */
+const REQUEST_FILTERS = [
+	...MOUSE_HID_FILTERS,
+	{ vendorId: 0x1532 },
+	{ vendorId: LOGITECH_VID },
+	{ vendorId: REDRAGON_VID }
+];
 
-export const connected = writable(false);
-export const deviceInfo = writable<ConnectedDevice | null>(null);
+let nextSessionId = 1;
+
+export const sessions = writable<DeviceSession[]>([]);
+export const activeSessionId = writable<string | null>(null);
 export const error = writable<string | null>(null);
 export const logVersion = writable(0);
 
@@ -62,71 +84,221 @@ logger.log = (level, message, hex, direction) => {
 
 type RawDevice = NonNullable<Parameters<WebHidTransport['open']>[0]>[number];
 
-async function requestDevices(): Promise<RawDevice[]> {
-	if (!navigator.hid) throw new Error('WebHID is not available in this browser.');
-	// Ask for every brand at once so the chooser lists each supported keyboard
-	// that is plugged in; the vendor is picked from whatever the user grants.
-	return navigator.hid.requestDevice({
-		filters: [{ vendorId: 0x1532 }, { vendorId: LOGITECH_VID }, { vendorId: REDRAGON_VID }]
-	});
+function deviceKeyOf(device: { vendorId: number; productId: number; serialNumber?: string; productName: string }): string {
+	return [device.vendorId, device.productId, device.serialNumber || device.productName].join(':');
 }
 
-export async function connect(): Promise<void> {
+/**
+ * Opens the browser's device chooser and adds every supported device the user
+ * grants as a new workspace session, without disturbing existing ones.
+ */
+export async function addDevice(): Promise<void> {
 	error.set(null);
 	try {
-		if (active) await active.disconnect();
-		active = null;
-		const granted = await requestDevices();
+		if (!navigator.hid) throw new Error('WebHID is not available in this browser.');
+		const granted = (await navigator.hid.requestDevice({ filters: REQUEST_FILTERS })) as unknown as MouseHidDevice[];
+		if (granted.length === 0) return; // chooser dismissed - not an error
+
+		const created: DeviceSession[] = [];
+		const existingKeys = new Set(get(sessions).map((s) => s.deviceKey));
+
 		const logiDevices = granted.filter((d) => d.vendorId === LOGITECH_VID && LOGITECH_SUPPORTED_PIDS.includes(d.productId));
 		const redragonDevices = granted.filter((d) => d.vendorId === REDRAGON_VID && REDRAGON_SUPPORTED_PIDS.includes(d.productId));
-		const razerDevices = granted.filter((d) => getKeyboard(d.productId) !== undefined);
+		const razerDevices = granted.filter((d) => d.vendorId === 0x1532 && getKeyboard(d.productId) !== undefined);
+		const mouseCandidates = granted.filter((d) => !existingKeys.has(deviceKeyOf(d)));
+
 		if (logiDevices.length > 0) {
-			const info = await logitechController.connect(logiDevices);
-			active = logitechController;
-			deviceInfo.set(info);
-		} else if (redragonDevices.length > 0) {
-			const info = await redragonController.connect(redragonDevices);
-			active = redragonController;
-			deviceInfo.set(info);
-		} else if (razerDevices.length > 0) {
-			const info = await razerController.connect(razerDevices);
-			active = razerController;
-			deviceInfo.set({ ...info, vendor: 'razer' });
-			// auto-load the on-device state the HID interface exposes: backlight
-			// brightness, game-mode and macro-LED flags. Effects are write-only on
-			// Razer so the current effect itself can't be read back.
-			const b = await razerController.getBrightness().catch(() => null);
-			if (b != null) brightness.set(b);
-			const gm = await razerController.getGameMode().catch(() => null);
-			if (gm != null) gameMode.set(gm);
-			const ml = await razerController.getMacroLeds().catch(() => null);
-			if (ml != null) macroLed.set(ml);
-			if (info.kbd?.battery) {
-				const bat = await razerController.getBattery().catch(() => null);
-				if (bat) battery.set(bat);
-			}
-		} else {
-			throw new Error('No supported keyboard was selected. Grant access to a Razer Chroma, Logitech G-series or Redragon RGB keyboard.');
+			const controller = new LogitechKeyboardController();
+			const info = await controller.connect(logiDevices as never);
+			created.push({
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'logitech',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(logiDevices[0]),
+				controller,
+				info: { ...info, vendor: 'logitech' }
+			});
 		}
-		connected.set(controller.connected);
+		if (redragonDevices.length > 0) {
+			const controller = new RedragonKeyboardController();
+			const info = await controller.connect(redragonDevices as never);
+			created.push({
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'redragon',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(redragonDevices[0]),
+				controller,
+				info: { ...info, vendor: 'redragon' }
+			});
+		}
+		if (razerDevices.length > 0) {
+			const controller = new KeyboardController();
+			const info = await controller.connect(razerDevices as unknown as Parameters<WebHidTransport['open']>[0]);
+			created.push({
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'razer',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(razerDevices[0]),
+				controller,
+				info: { ...info, vendor: 'razer' }
+			});
+		}
+		if (created.length === 0) {
+			// No keyboard matched - try the mouse drivers.
+			const device = mouseCandidates.find((d) => createMouseClient(d));
+			if (!device) {
+				throw new Error('No supported device was selected. Grant access to a Razer Chroma, Logitech G-series, Redragon RGB or supported gaming mouse.');
+			}
+			created.push(await activateMouse(device));
+		}
+
+		sessions.update((list) => [...list, ...created]);
+		activeSessionId.set(created[created.length - 1].id);
 	} catch (err) {
 		error.set(err instanceof Error ? err.message : String(err));
-		connected.set(false);
 	}
 }
 
-export const brightness = writable<number | null>(null);
-export const gameMode = writable<boolean | null>(null);
-export const macroLed = writable<boolean | null>(null);
-export const battery = writable<{ level: number; charging: boolean } | null>(null);
+/**
+ * Adds simulated keyboard + mouse sessions so the workspace can be explored
+ * without any physical hardware. Demo devices are marked "(Demo)".
+ */
+export async function addDemoDevices(): Promise<void> {
+	error.set(null);
+	try {
+		const existingKeys = new Set(get(sessions).map((s) => s.deviceKey));
 
-export async function disconnect(): Promise<void> {
-	if (active) await active.disconnect();
-	active = null;
-	connected.set(false);
-	deviceInfo.set(null);
+		const created: DeviceSession[] = [];
+		if (!existingKeys.has(DEMO_KEYBOARD_KEY)) {
+			const controller = new DemoKeyboardController();
+			const info = await controller.connect();
+			created.push({
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'razer',
+				pid: info.pid,
+				name: `${info.name} (Demo)`,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: DEMO_KEYBOARD_KEY,
+				controller,
+				info: { ...info, vendor: 'razer' }
+			});
+		}
+		if (!existingKeys.has(DEMO_MOUSE_KEY)) {
+			const client = new DemoMouseDriver();
+			await client.open();
+			const status = await client.readStatus();
+			created.push({
+				id: `ms-${nextSessionId++}`,
+				kind: 'mouse',
+				brand: 'Demo',
+				pid: client.device.productId,
+				name: `${status.name} (Demo)`,
+				serial: client.device.serialNumber,
+				deviceKey: DEMO_MOUSE_KEY,
+				client,
+				status,
+				dpiOptions: client.getDpiOptions(),
+				busy: false
+			});
+		}
+
+		if (created.length === 0) return;
+		sessions.update((list) => [...list, ...created]);
+		activeSessionId.set(created[0].id);
+		logger.info('Demo mode enabled - devices are simulated, no hardware is touched.');
+	} catch (err) {
+		error.set(err instanceof Error ? err.message : String(err));
+	}
 }
 
-export function controllerBus(): AppController {
-	return controller;
+const DEMO_KEYBOARD_KEY = 'demo:keyboard';
+const DEMO_MOUSE_KEY = 'demo:mouse';
+
+async function activateMouse(device: MouseHidDevice): Promise<MouseSession> {
+	const client = createMouseClient(device);
+	if (!client) throw new Error('The selected device has no supported mouse driver.');
+	// Every driver opens idempotently; some protocols also need an input-report
+	// listener registered before the first exchange.
+	await client.open();
+	let status: MouseStatus;
+	try {
+		status = await client.readStatus();
+	} catch (err) {
+		await client.close().catch(() => undefined);
+		throw err;
+	}
+	return {
+		id: `ms-${nextSessionId++}`,
+		kind: 'mouse',
+		brand: deviceBrandOf(client),
+		pid: device.productId,
+		name: status.name || device.productName || 'Gaming mouse',
+		serial: device.serialNumber || undefined,
+		deviceKey: deviceKeyOf(device),
+		client,
+		status,
+		dpiOptions: client.getDpiOptions?.() ?? [],
+		busy: false
+	};
+}
+
+/** Disconnects one device and removes it from the workspace. */
+export async function removeSession(id: string): Promise<void> {
+	const session = get(sessions).find((s) => s.id === id);
+	if (!session) return;
+	if (session.kind === 'keyboard') await session.controller.disconnect().catch(() => undefined);
+	else await session.client.close().catch(() => undefined);
+	sessions.update((list) => list.filter((s) => s.id !== id));
+	if (get(activeSessionId) === id) {
+		const remaining = get(sessions);
+		activeSessionId.set(remaining[remaining.length - 1]?.id ?? null);
+	}
+}
+
+/** Re-read the live status of one connected mouse. */
+export async function refreshMouseStatus(sessionId: string): Promise<MouseStatus | null> {
+	const session = get(sessions).find((s): s is MouseSession => s.id === sessionId && s.kind === 'mouse');
+	if (!session) return null;
+	const status = await session.client.readStatus();
+	updateMouseSession(sessionId, { status });
+	return status;
+}
+
+/**
+ * Run a driver setter against one connected mouse, then re-read its status so
+ * the UI reflects what the hardware actually accepted.
+ */
+export async function applyMouseSetting<T>(sessionId: string, fn: (client: MouseDriver) => Promise<T>): Promise<T | null> {
+	const session = get(sessions).find((s): s is MouseSession => s.id === sessionId && s.kind === 'mouse');
+	if (!session) return null;
+	updateMouseSession(sessionId, { busy: true });
+	error.set(null);
+	try {
+		const result = await fn(session.client);
+		await refreshMouseStatus(sessionId).catch(() => undefined);
+		return result;
+	} catch (err) {
+		error.set(err instanceof Error ? err.message : String(err));
+		return null;
+	} finally {
+		updateMouseSession(sessionId, { busy: false });
+	}
+}
+
+function updateMouseSession(sessionId: string, patch: Partial<MouseSession>): void {
+	sessions.update((list) => list.map((s) => (s.id === sessionId && s.kind === 'mouse' ? { ...s, ...patch } : s)));
 }

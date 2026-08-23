@@ -1,5 +1,5 @@
 {
-	"name": "openkeyboard",
+	"name": "openperipherals",
 	"private": true,
 	"version": "0.0.4",
 	"type": "module",
@@ -35,7 +35,8 @@
 		"vitest": "^4.1.10"
 	},
 	"dependencies": {
-		"svelte-sonner": "^1.1.1"
+		"svelte-sonner": "^1.1.1",
+		"three": "0.119.1"
 	},
 	"prettier": {
 		"$schema": "http://json.schemastore.org/prettierrc",

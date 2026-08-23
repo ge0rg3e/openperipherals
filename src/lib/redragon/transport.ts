@@ -59,7 +59,7 @@ export class RedragonTransport {
 		// product ids we know are RGB keyboards.
 		const candidates = requested.filter((d) => d.vendorId === REDRAGON_VID && REDRAGON_SUPPORTED_PIDS.includes(d.productId));
 		if (candidates.length === 0) {
-			throw new Error('No supported Redragon keyboard was granted. Choose a Redragon RGB keyboard from the picker.');
+			throw new Error('No supported Redragon device was granted. Choose a Redragon RGB device from the picker.');
 		}
 		for (const device of candidates) {
 			try {
@@ -71,7 +71,7 @@ export class RedragonTransport {
 			}
 		}
 		if (this.devices.length === 0) {
-			throw new Error('Could not open the granted Redragon keyboard. Close any other app using it and retry.');
+			throw new Error('Could not open the granted Redragon device. Close any other app using it and retry.');
 		}
 		// Prefer the interface that declares the 0xFF1C vendor collection (the
 		// lighting control); fall back to the first granted handle.
@@ -79,7 +79,7 @@ export class RedragonTransport {
 		const spec = getRedragonKeyboard(this.active.productId);
 		// productName reported by the device is more specific than a shared PID
 		// entry (e.g. "Redragon K587", "Redragon K556"), so prefer it.
-		const name = this.active.productName?.trim() || spec?.name || `Redragon Keyboard 0x${this.active.productId.toString(16).padStart(4, '0')}`;
+		const name = this.active.productName?.trim() || spec?.name || `Redragon Device 0x${this.active.productId.toString(16).padStart(4, '0')}`;
 		this.handleValue = { name, pid: this.active.productId, productName: name, layout: spec };
 		logger.info(`Redragon transport opened: ${name} (0x${this.active.productId.toString(16).padStart(4, '0')})`);
 		return this.handleValue;

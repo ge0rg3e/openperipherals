@@ -1,23 +1,26 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-	import { KEYBOARD_DEVICES } from '$lib/razer/devices';
+import { Button } from '$lib/components/ui/button';
+import { Badge } from '$lib/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+import { Settings } from '@lucide/svelte';
+import { KEYBOARD_DEVICES } from '$lib/razer/devices';
 	import { LOGITECH_DEVICES } from '$lib/logitech/devices';
 	import { REDRAGON_DEVICES } from '$lib/redragon/devices';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
-	import { connect, controller } from '$lib/store';
+	import { addDevice } from '$lib/store';
 	import { goto } from '$app/navigation';
 
 	async function startConnect() {
-		await connect();
-		if (controller.connected) goto('/app');
+		await addDevice();
+		goto('/app');
 	}
 
-	const linuxSetupCommands = `sudo tee /etc/udev/rules.d/55-openkeyboard.rules <<'EOF'
+	const linuxSetupCommands = `sudo tee /etc/udev/rules.d/55-openperipherals.rules <<'EOF'
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", MODE="0666", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", MODE="0666", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", MODE="0666", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3710", MODE="0666", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3554", MODE="0666", TAG+="uaccess"
 EOF
 sudo udevadm control --reload-rules
 sudo udevadm trigger`;
@@ -115,7 +118,7 @@ sudo udevadm trigger`;
 	const features = [
 		{
 			title: 'Hardware effects',
-			description: 'Static, wave, spectrum, reactive, breathing and starlight, rendered by the keyboard itself.'
+			description: 'Static, wave, spectrum, reactive, breathing and starlight, rendered by the device itself.'
 		},
 		{
 			title: 'No install',
@@ -123,57 +126,57 @@ sudo udevadm trigger`;
 		},
 		{
 			title: 'Privacy first',
-			description: 'Everything stays on your machine and your keyboard. No telemetry no tracking.'
+			description: 'Everything stays on your machine and your device. No telemetry no tracking.'
 		}
 	];
 </script>
 
 <svelte:head>
-	<title>OpenKeyboard: control your Razer, Logitech & Redragon RGB keyboard in the browser</title>
+	<title>OpenPeripherals: control your Razer, Logitech & Redragon RGB devices in the browser</title>
 	<meta
 		name="description"
-		content="OpenKeyboard is a free, open-source WebHID app that controls your Razer Chroma, Logitech G-series and Redragon keyboard lighting straight from the browser. No drivers, no Synapse, nothing to install."
+		content="OpenPeripherals is a free, open-source WebHID app that controls your Razer Chroma, Logitech G-series and Redragon device lighting straight from the browser. No drivers, no Synapse, nothing to install."
 	/>
 	<meta name="robots" content="index, follow" />
 	<meta name="theme-color" content="#0a0c0e" />
-	<link rel="canonical" href="https://openkeyboard.vercel.app/" />
+	<link rel="canonical" href="https://openperipherals.vercel.app/" />
 
 	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="OpenKeyboard" />
-	<meta property="og:title" content="OpenKeyboard control your Razer, Logitech & Redragon RGB keyboard in the browser" />
-	<meta property="og:description" content="Free, open-source WebHID app for Razer Chroma, Logitech G-series and Redragon RGB keyboards. No drivers, no Synapse, nothing to install." />
-	<meta property="og:url" content="https://openkeyboard.vercel.app/" />
-	<meta property="og:image" content="https://openkeyboard.vercel.app/og.png" />
+	<meta property="og:site_name" content="OpenPeripherals" />
+	<meta property="og:title" content="OpenPeripherals control your Razer, Logitech & Redragon RGB devices in the browser" />
+	<meta property="og:description" content="Free, open-source WebHID app for Razer Chroma, Logitech G-series and Redragon RGB devices. No drivers, no Synapse, nothing to install." />
+	<meta property="og:url" content="https://openperipherals.vercel.app/" />
+	<meta property="og:image" content="https://openperipherals.vercel.app/og.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="OpenKeyboard - keyboard lighting in your browser" />
+	<meta property="og:image:alt" content="OpenPeripherals - device lighting in your browser" />
 
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content="OpenKeyboard control your Razer, Logitech & Redragon RGB keyboard in the browser" />
-	<meta name="twitter:description" content="Free, open-source WebHID app for Razer Chroma, Logitech G-series and Redragon RGB keyboards. No drivers, no Synapse, nothing to install." />
-	<meta name="twitter:image" content="https://openkeyboard.vercel.app/og.png" />
+	<meta name="twitter:title" content="OpenPeripherals control your Razer, Logitech & Redragon RGB devices in the browser" />
+	<meta name="twitter:description" content="Free, open-source WebHID app for Razer Chroma, Logitech G-series and Redragon RGB devices. No drivers, no Synapse, nothing to install." />
+	<meta name="twitter:image" content="https://openperipherals.vercel.app/og.png" />
 
 	<script type="application/ld+json">
 		{
 			"@context": "https://schema.org",
 			"@type": "WebApplication",
-			"name": "OpenKeyboard",
-			"alternateName": "OpenKeyboard web app",
-			"url": "https://openkeyboard.vercel.app/",
+			"name": "OpenPeripherals",
+			"alternateName": "OpenPeripherals web app",
+			"url": "https://openperipherals.vercel.app/",
 			"applicationCategory": "UtilityApplication",
 			"operatingSystem": "Any (Chromium browsers)",
 			"browserRequirements": "WebHID API in a secure context",
-			"description": "Free, open-source browser app that controls Razer Chroma, Logitech G-series and Redragon keyboard lighting over WebHID. No drivers and no proprietary software required.",
+			"description": "Free, open-source browser app that controls Razer Chroma, Logitech G-series and Redragon device lighting over WebHID. No drivers and no proprietary software required.",
 			"isAccessibleForFree": true,
 			"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
 			"featureList": [
 				"Static, wave, spectrum, reactive, breathing and starlight hardware effects",
 				"Per-key custom lighting",
-				"Works with Razer Chroma, Logitech G-series and Redragon keyboards",
+				"Works with Razer Chroma, Logitech G-series and Redragon devices",
 				"No install, no drivers, no vendor software"
 			],
 			"author": { "@type": "Person", "name": "Ge0rg3e", "url": "https://github.com/ge0rg3e" },
-			"publisher": { "@type": "Organization", "name": "OpenKeyboard", "url": "https://openkeyboard.vercel.app/" }
+			"publisher": { "@type": "Organization", "name": "OpenPeripherals", "url": "https://openperipherals.vercel.app/" }
 		}
 	</script>
 </svelte:head>
@@ -183,12 +186,12 @@ sudo udevadm trigger`;
 	<header class="sticky top-0 z-10 border-b border-border/60 bg-background/80 backdrop-blur">
 		<div class="mx-auto flex w-full max-w-6xl items-center justify-between py-3">
 			<a href="/" class="flex items-center gap-2 font-semibold">
-				OpenKeyboard
+				OpenPeripherals
 				<Badge variant="secondary" class="rounded-full px-1.5 py-0 text-[10px]">beta</Badge>
 			</a>
 			<div class="flex items-center gap-3">
 				<Button href="#troubleshooting" variant="ghost" size="sm">Troubleshooting</Button>
-				<Button variant="outline" size="sm" onclick={startConnect}>Connect Keyboard</Button>
+				<Button variant="outline" size="sm" onclick={startConnect}>Connect Device</Button>
 			</div>
 		</div>
 	</header>
@@ -196,15 +199,19 @@ sudo udevadm trigger`;
 	<main class="flex-1">
 		<!-- Hero -->
 		<section class="mx-auto w-full max-w-4xl px-4 pt-16 pb-12 text-center sm:pt-24">
-			<h1 class="mt-6 text-4xl font-bold tracking-tight text-balance sm:text-6xl">OpenKeyboard</h1>
+			<h1 class="mt-6 text-4xl font-bold tracking-tight text-balance sm:text-6xl">OpenPeripherals</h1>
 
 			<p class="mx-auto mt-4 max-w-1xl text-base text-muted-foreground text-pretty sm:text-lg">
-				A free, open-source WebHID app that controls your keyboard without any proprietary software.<br />Connect your keyboard, change its settings, and close the web app when you're done.
+				A free, open-source WebHID app that controls your devices without any proprietary software.<br />Connect your device, change its settings, and close the web app when you're done.
 			</p>
 
 			<div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-				<Button size="lg" onclick={startConnect}>Connect Keyboard</Button>
-				<Button href="#supported" variant="outline" size="lg">Supported keyboards</Button>
+				<Button size="lg" onclick={startConnect}>Connect Device</Button>
+				<Button href="/config" variant="default" size="lg">
+					<Settings class="mr-1.5 h-3.5 w-3.5" />
+					Configure Peripherals
+				</Button>
+				<Button href="#supported" variant="outline" size="lg">Supported devices</Button>
 			</div>
 		</section>
 
@@ -226,15 +233,15 @@ sudo udevadm trigger`;
 			</div>
 		</section>
 
-		<!-- Supported keyboards -->
+		<!-- Supported devices -->
 		<section id="supported" class="border-t border-border/60 bg-secondary/40">
 			<div class="mx-auto w-full max-w-5xl px-4 py-16">
 				<div class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
 					<div>
-						<h2 class="text-2xl font-bold tracking-tight">Supported keyboards</h2>
+						<h2 class="text-2xl font-bold tracking-tight">Supported devices</h2>
 						<p class="mt-2 max-w-xl text-sm text-muted-foreground">
 							{deviceCount}
-							{activeCat.label} keyboards supported.
+							{activeCat.label} devices supported.
 						</p>
 					</div>
 					<Badge variant="secondary" class="rounded-full">
@@ -292,11 +299,11 @@ sudo udevadm trigger`;
 				<div class="mt-8 rounded-xl border border-border/60 bg-card p-6">
 					<h3 class="text-sm font-semibold">Linux needs a one-time permission fix</h3>
 					<p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-						Browsers talk to your keyboard through the WebHID API, which on Linux is guarded by the OS.<br />By default your keyboard is only readable, not writable, so the app connects
+						Browsers talk to your device through the WebHID API, which on Linux is guarded by the OS.<br />By default your device is only readable, not writable, so the app connects
 						but the lighting controls do nothing until a small udev rule grants access.
 					</p>
 					<p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-						If "Connect Keyboard" looks like it worked but nothing changes, run these three lines in a terminal, then unplug and replug your keyboard (or reboot):
+						If "Connect Device" looks like it worked but nothing changes, run these three lines in a terminal, then unplug and replug your device (or reboot):
 					</p>
 					<div class="relative mt-4">
 						<button
@@ -323,10 +330,10 @@ sudo udevadm trigger`;
 
 	<footer class="border-t border-border/60">
 		<div class="mx-auto flex w-full max-w-6xl items-center justify-between py-6 text-xs text-muted-foreground">
-			<span>OpenKeyboard - {new Date().getFullYear()}</span>
+			<span>OpenPeripherals - {new Date().getFullYear()}</span>
 
 			<div class="flex items-center gap-3">
-				<Button variant="link" size="sm" class="px-0" target="_blank" href="https://github.com/ge0rg3e/openkeyboard">GitHub</Button>
+				<Button variant="link" size="sm" class="px-0" target="_blank" href="https://github.com/ge0rg3e/openperipherals">GitHub</Button>
 
 				<Button variant="link" size="sm" class="px-0" target="_blank" href="https://x.com/ge0rg3e_dev">Follow @ge0rg3e_dev on X</Button>
 			</div>

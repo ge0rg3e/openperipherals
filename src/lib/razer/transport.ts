@@ -90,7 +90,7 @@ export class WebHidTransport extends Transport {
 		const candidates: HidDevice[] = [];
 		for (const d of grantedRaw) {
 			if (!getKeyboard(d.productId)) {
-				logger.info(`Skipping non-keyboard Razer device: ${d.productName || '0x' + d.productId.toString(16)}`);
+				logger.info(`Skipping unsupported Razer device: ${d.productName || '0x' + d.productId.toString(16)}`);
 				continue;
 			}
 			try {
@@ -102,7 +102,7 @@ export class WebHidTransport extends Transport {
 			}
 		}
 		if (!candidates.length) {
-			throw new Error('Could not open a supported Razer keyboard. Grant access to your keyboard (e.g. Huntsman, BlackWidow) - headsets/mice are ignored.');
+			throw new Error('Could not open a supported Razer device. Grant access to your device (e.g. Huntsman, BlackWidow) - headsets/mice are ignored.');
 		}
 		// Pin a single keyboard; never hop between devices during writes.
 		this.devices = candidates;

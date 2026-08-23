@@ -57,7 +57,7 @@ export class LogitechTransport {
 		const requested = granted ?? (await request({ filters: [{ vendorId: LOGITECH_VID }] }));
 		const candidates = requested.filter((d) => LOGITECH_SUPPORTED_PIDS.includes(d.productId));
 		if (candidates.length === 0) {
-			throw new Error('No supported Logitech keyboard was granted. Choose a Logitech RGB keyboard from the picker.');
+			throw new Error('No supported Logitech device was granted. Choose a Logitech RGB device from the picker.');
 		}
 		// Open every granted interface. A board like the G512/G610/G810 exposes
 		// the 20-byte and 64-byte control reports as separate top-level
