@@ -1,0 +1,8 @@
+# allow crawling everything by default
+User-agent: *
+Allow: /
+
+# the interactive app is client-only and marked noindex
+Disallow: /app
+
+Sitemap: https://openperipherals.vercel.app/sitemap.xml

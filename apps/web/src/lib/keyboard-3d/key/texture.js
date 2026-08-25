@@ -1,0 +1,162 @@
+// @ts-nocheck
+import * as THREE from 'three';
+import LEGENDS from '../config/legends/legends';
+import groups from '../config/groups.json';
+
+export const keyTexture = (opts) => {
+	let w = opts.w;
+	let h = opts.h;
+	let legend = opts.legend;
+	let key = opts.code;
+	var texture;
+	let pxPerU = 128;
+	let fg = opts.color;
+	let bg = opts.background;
+
+	//iso enter add extra .25 for overhang
+	let isIsoEnter = key === 'KC_ENT' && h > 1;
+	if (isIsoEnter) {
+		w = w + 0.25;
+	}
+
+	let canvas = document.createElement('canvas');
+	canvas.height = pxPerU * h;
+	canvas.width = pxPerU * w;
+
+	let ctx = canvas.getContext('2d');
+	//draw base color
+	ctx.fillStyle = bg;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	//draw gradient to simulate sculpting
+	let gradient;
+	if (key === 'KC_SPC') {
+		//convex
+		gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		gradient.addColorStop(0, 'rgba(0,0,0,0.15)');
+		gradient.addColorStop(0.5, 'rgba(128,128,128,0.0)');
+		gradient.addColorStop(1, 'rgba(255,255,255,0.15)');
+	} else {
+		//concave
+		//simulate slight curve with gradient on face
+		gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+		gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+		gradient.addColorStop(0.4, 'rgba(255,255,255,0.0)');
+		gradient.addColorStop(0.6, 'rgba(0,0,0,0)');
+		gradient.addColorStop(1, 'rgba(0,0,0,0.15)');
+	}
+
+	//bottom edge highlight
+	let shineOpacity = 0.4;
+	let shineRight = ctx.createLinearGradient(0, 0, canvas.width, 0);
+	shineRight.addColorStop(0, `rgba(255,255,255,${0 * shineOpacity})`);
+	shineRight.addColorStop(0.03, `rgba(255,255,255,${0 * shineOpacity})`);
+	shineRight.addColorStop(0.07, `rgba(255,255,255,${0.6 * shineOpacity})`);
+	shineRight.addColorStop(0.8, `rgba(255,255,255,${0.6 * shineOpacity})`);
+	shineRight.addColorStop(0.95, `rgba(255,255,255,${0 * shineOpacity})`);
+
+	//side edge highlight
+	let shineBottom = ctx.createLinearGradient(0, 0, 0, canvas.height);
+	let highlightRatio = (canvas.width - pxPerU * 0.04) / canvas.width;
+	shineBottom.addColorStop(0, `rgba(255,255,255,${0 * shineOpacity})`);
+	shineBottom.addColorStop(0.03, `rgba(255,255,255,${0 * shineOpacity})`);
+	shineBottom.addColorStop(0.15, `rgba(255,255,255,${0.5 * shineOpacity})`);
+	shineBottom.addColorStop(0.5, `rgba(255,255,255,${0.7 * shineOpacity})`);
+	shineBottom.addColorStop(0.85, `rgba(255,255,255,${1.1 * shineOpacity})`);
+	shineBottom.addColorStop(0.9, `rgba(255,255,255,${0.7 * shineOpacity})`);
+	shineBottom.addColorStop(0.95, `rgba(255,255,255,${0 * shineOpacity})`);
+	shineBottom.addColorStop(1, `rgba(255,255,255,${0 * shineOpacity})`);
+
+	//draw gradients
+	ctx.fillStyle = gradient;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	ctx.fillStyle = shineRight;
+	ctx.fillRect(0, canvas.height * 0.97, canvas.width, canvas.height);
+
+	ctx.fillStyle = shineBottom;
+	ctx.fillRect(canvas.width * highlightRatio, 0, canvas.width, canvas.height);
+
+	let l = LEGENDS[legend];
+	let mainChar = l?.chars[key] || '';
+
+	// 1u bs and enter
+	if (key === 'KC_BSPC' && w <= 1) {
+		mainChar = l?.chars['KC_BSISO'];
+	}
+	if ((key === 'KC_ENT' && w <= 1) || isIsoEnter) {
+		mainChar = l?.chars['KC_ENISO'];
+	}
+
+	let modWord = !l.encoded && mainChar.length > 1; //mods use multi chacter words instead of symbols (sa)
+
+	//convert to unicode value if encoded for custom fonts
+	mainChar =
+		l.encoded && mainChar.length > 1 ? String.fromCharCode(parseInt(mainChar, 16)) : mainChar;
+
+	//font size
+	let fontScaler = 1;
+	if (mainChar['top']) fontScaler = 1 / 2; //number keys 2 characters stacked
+	if (!mainChar['top'] && modWord) fontScaler = 1 / 4; // keys with full words for modifer text i.e. "Enter", "Alt", "Home"
+	let fontSize = l.fontsize * (fontScaler + 0.25);
+
+	//set font style
+	if (modWord) {
+		ctx.font = `700 ${fontSize}px ${l.fontFamily}`;
+	} else {
+		ctx.font = `${fontSize}px ${l.fontFamily}`;
+	}
+	ctx.fillStyle = fg;
+
+	if (l.centered) {
+		ctx.textAlign = 'center';
+		l.offsetX = (w * pxPerU) / 2;
+	} else {
+		ctx.textAlign = 'left';
+	}
+	let ent_off_x = 0;
+	let ent_off_y = 0;
+	if (isIsoEnter) {
+		ent_off_x = 15;
+		ent_off_y = 6;
+	}
+
+	//backlight halo behind the legend - multiplied by the frame tint, so it
+	//glows in the effect colour while the cap body stays dark
+	ctx.shadowColor = 'rgba(255,255,255,0.55)';
+	ctx.shadowBlur = pxPerU * 0.16;
+
+	if (mainChar['top']) {
+		ctx.fillText(mainChar.top, l.offsetX, l.offsetY + l.yOffsetTop);
+		ctx.fillText(mainChar.bottom, l.offsetX, l.offsetY + l.yOffsetBottom);
+	} else if (mainChar) {
+		ctx.fillText(
+			mainChar,
+			l.offsetX + ent_off_x,
+			l.fontsize + (groups.alphas.includes(key) ? l.offsetY : l.yOffsetMod) + ent_off_y
+		);
+	} else {
+		//blank caps (e.g. spacebar) still get a soft backlight pool
+		const glow = ctx.createRadialGradient(
+			canvas.width / 2,
+			canvas.height / 2,
+			0,
+			canvas.width / 2,
+			canvas.height / 2,
+			Math.min(canvas.width, canvas.height) * 0.45
+		);
+		glow.addColorStop(0, 'rgba(255,255,255,0.5)');
+		glow.addColorStop(1, 'rgba(255,255,255,0)');
+		ctx.fillStyle = glow;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+	}
+
+	ctx.shadowBlur = 0;
+	ctx.shadowColor = 'transparent';
+
+	texture = new THREE.CanvasTexture(canvas);
+
+	texture.needsUpdate = true;
+	texture.minFilter = THREE.NearestMipmapNearestFilter;
+	return texture;
+};

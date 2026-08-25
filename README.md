@@ -1,6 +1,6 @@
-# OpenKeyboard (BETA)
+# OpenPeripherals (BETA)
 
-Control keyboard settings from the browser over WebHID. No drivers, no vendor software.
+Control peripheral settings from the browser over WebHID. No drivers, no vendor software.
 
 ## Dev Setup
 
@@ -11,15 +11,17 @@ npm run dev
 
 ## Linux Fix
 
-By default on Linux your keyboard is only readable, not writable, so the app connects but the lighting controls do nothing until a small udev rule grants access.
+By default on Linux your device is only readable, not writable, so the app connects but the lighting controls do nothing until a small udev rule grants access.
 
-If "Connect Keyboard" looks like it worked but nothing changes, run these three lines in a terminal, then unplug and replug your keyboard (or reboot):
+If "Connect Device" looks like it worked but nothing changes, run these three lines in a terminal, then unplug and replug your device (or reboot):
 
 ```
-sudo tee /etc/udev/rules.d/55-openkeyboard.rules <<'EOF'
+sudo tee /etc/udev/rules.d/55-openperipherals.rules <<'EOF'
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", MODE="0666", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", MODE="0666", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", MODE="0666", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3710", MODE="0666", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3554", MODE="0666", TAG+="uaccess"
 EOF
 sudo udevadm control --reload-rules
 sudo udevadm trigger
@@ -29,7 +31,7 @@ sudo udevadm trigger
 
 ## How it works
 
-Keyboards expose vendor HID interfaces that accept effect commands. This app builds and sends those report packets directly from the browser.
+Devices expose vendor HID interfaces that accept effect commands. This app builds and sends those report packets directly from the browser.
 
 ## Credits
 
@@ -39,10 +41,10 @@ The HID protocol details for Logitech and Redragon devices were reverse-engineer
 
 ## Contributing
 
-Found a bug, or want to add support for a new keyboard? Open an issue or pull request.
+Found a bug, or want to add support for a new device? Open an issue or pull request.
 
 ```bash
-cd openkeyboard
+cd openperipherals
 npm install
 npm run dev        # start the dev server
 ```
