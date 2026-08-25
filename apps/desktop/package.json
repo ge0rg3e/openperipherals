@@ -1,0 +1,54 @@
+{
+	"name": "@openperipherals/desktop",
+	"private": true,
+	"version": "0.0.4",
+	"type": "module",
+	"author": "Ge0rg3e",
+	"homepage": "https://github.com/ge0rg3e/openperipherals",
+	"description": "Electron desktop shell for OpenPeripherals (serves the @openperipherals/web build)",
+	"main": "electron/main.cjs",
+	"scripts": {
+		"dev": "node electron/dev.mjs",
+		"build": "node scripts/sync-web.mjs",
+		"start": "electron .",
+		"dist": "electron-builder"
+	},
+	"devDependencies": {
+		"@openperipherals/web": "*",
+		"electron": "39.8.10",
+		"electron-builder": "^26.0.12"
+	},
+	"build": {
+		"appId": "com.ge0rg3e.openperipherals",
+		"productName": "OpenPeripherals",
+		"executableName": "openperipherals",
+		"files": ["electron/**", "scripts/**", "build/**", "package.json"],
+		"electronDist": "../../node_modules/electron/dist",
+		"linux": {
+			"target": ["deb", "pacman"],
+			"category": "Utility",
+			"maintainer": "Ge0rg3e",
+			"artifactName": "OpenPeripherals-${version}-${arch}.${ext}"
+		},
+		"deb": {
+			"packageCategory": "utils",
+			"artifactName": "OpenPeripherals-${version}-${arch}-debian.${ext}"
+		},
+		"pacman": {
+			"artifactName": "OpenPeripherals-${version}-${arch}-arch.${ext}"
+		},
+		"nsis": {
+			"oneClick": false,
+			"allowToChangeInstallationDirectory": true,
+			"artifactName": "OpenPeripherals-${version}-${arch}-setup.${ext}"
+		},
+		"win": {
+			"target": "nsis",
+			"artifactName": "OpenPeripherals-${version}-${arch}-setup.${ext}"
+		},
+		"mac": {
+			"target": "dmg",
+			"artifactName": "OpenPeripherals-macos-${arch}.${ext}"
+		}
+	}
+}
