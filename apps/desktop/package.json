@@ -7,6 +7,7 @@
 	"homepage": "https://github.com/ge0rg3e/openperipherals",
 	"description": "Electron desktop shell for OpenPeripherals (serves the @openperipherals/web build)",
 	"main": "electron/main.cjs",
+	"desktopName": "openperipherals",
 	"scripts": {
 		"dev": "node electron/dev.mjs",
 		"build": "node scripts/sync-web.mjs",
@@ -32,6 +33,7 @@
 			"category": "Utility",
 			"maintainer": "Ge0rg3e",
 			"icon": "resources/icon.png",
+			"syncDesktopName": true,
 			"artifactName": "OpenPeripherals-${version}-${arch}.${ext}"
 		},
 		"deb": {
@@ -39,7 +41,22 @@
 			"artifactName": "OpenPeripherals-${version}-${arch}-debian.${ext}"
 		},
 		"pacman": {
-			"artifactName": "OpenPeripherals-${version}-${arch}-arch.${ext}"
+			"artifactName": "OpenPeripherals-${version}-${arch}-arch.${ext}",
+			"depends": [
+				"c-ares",
+				"ffmpeg",
+				"gtk3",
+				"libevent",
+				"libvpx",
+				"libxslt",
+				"libxss",
+				"minizip",
+				"nss",
+				"re2",
+				"snappy",
+				"libnotify",
+				"libappindicator-gtk3"
+			]
 		},
 		"nsis": {
 			"oneClick": false,
