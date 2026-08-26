@@ -1,10 +1,8 @@
 {
 	"name": "@openperipherals/web",
 	"private": true,
-	"version": "0.0.4",
 	"type": "module",
 	"author": "Ge0rg3e",
-	"description": "SvelteKit web app: WebHID peripheral control (shared by the desktop shell)",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",

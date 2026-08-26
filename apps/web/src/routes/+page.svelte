@@ -10,7 +10,7 @@
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Download } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
-	import pkg from '../../package.json' with { type: 'json' };
+	import pkg from '@root/package.json' with { type: 'json' };
 
 	function openWebApp() {
 		goto('/app');

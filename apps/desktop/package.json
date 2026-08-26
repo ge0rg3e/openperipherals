@@ -1,18 +1,16 @@
 {
 	"name": "@openperipherals/desktop",
 	"private": true,
-	"version": "0.0.4",
 	"type": "module",
 	"author": "Ge0rg3e",
 	"homepage": "https://github.com/ge0rg3e/openperipherals",
-	"description": "Electron desktop shell for OpenPeripherals (serves the @openperipherals/web build)",
 	"main": "electron/main.cjs",
 	"desktopName": "openperipherals",
 	"scripts": {
 		"dev": "node electron/dev.mjs",
 		"build": "node scripts/sync-web.mjs",
 		"start": "electron .",
-		"dist": "electron-builder --publish never"
+		"dist": "node scripts/dist.mjs"
 	},
 	"devDependencies": {
 		"@openperipherals/web": "*",
