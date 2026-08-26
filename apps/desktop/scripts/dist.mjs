@@ -15,9 +15,12 @@ if (!version) {
 }
 
 console.log(`Building OpenPeripherals installers v${version}`);
+// Dotted-key overrides must use the "-c.key=value" form: "--config <value>"
+// is parsed as a path to a config file.
 const result = spawnSync(
 	'electron-builder',
-	['--publish', 'never', '--config', `extraMetadata.version=${version}`],
+	['--publish', 'never', `-c.extraMetadata.version=${version}`],
 	{ stdio: 'inherit', shell: process.platform === 'win32' }
 );
+if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);
