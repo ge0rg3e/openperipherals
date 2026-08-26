@@ -31,6 +31,9 @@ let mainWindow = null;
 let tray = null;
 // Latest GitHub release cache - avoids hammering the API on every dialog open.
 let releaseCache = null;
+// Set right before a real quit so the window close handler lets it through -
+// an ordinary close only hides the window and keeps the app in the tray.
+let quitting = false;
 
 if (!app.requestSingleInstanceLock()) {
 	// A second instance just focuses the running one (important once an
@@ -146,6 +149,20 @@ function applyLaunchOnBoot(enabled) {
 
 // --- Update check ---------------------------------------------------------
 
+// The repo-root package.json is the version source of truth: scripts/dist.mjs
+// injects it at package time, and in dev (where the packaged value is absent)
+// we read the file directly instead of the workspace package.json.
+function displayAppVersion() {
+	if (!app.isPackaged) {
+		try {
+			return JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'package.json'), 'utf8')).version;
+		} catch {
+			// fall through to Electron's own value
+		}
+	}
+	return app.getVersion();
+}
+
 function compareVersions(a, b) {
 	const pa = String(a).replace(/^v/i, '').split('.').map((x) => parseInt(x, 10) || 0);
 	const pb = String(b).replace(/^v/i, '').split('.').map((x) => parseInt(x, 10) || 0);
@@ -195,7 +212,7 @@ async function checkForUpdate() {
 		const release = await fetchLatestRelease();
 		releaseCache = {
 			...release,
-			upToDate: compareVersions(app.getVersion(), release.latestVersion) >= 0,
+			upToDate: compareVersions(displayAppVersion(), release.latestVersion) >= 0,
 			checkedAt: Date.now()
 		};
 		return { ...releaseCache };
@@ -291,6 +308,16 @@ function createWindow() {
 
 	win.on('page-title-updated', (event) => event.preventDefault());
 
+	// Closing the window keeps the app alive in the tray (like Discord or
+	// Steam); only the tray menu's Quit ends the process. Without a tray we
+	// have to close for real, otherwise the app would become unreachable.
+	win.on('close', (event) => {
+		if (!quitting && tray && !tray.isDestroyed()) {
+			event.preventDefault();
+			win.hide();
+		}
+	});
+
 	const sendMaximized = () => {
 		if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized());
 	};
@@ -324,7 +351,7 @@ function registerIpc() {
 
 	// --- Settings / about ---
 	ipcMain.handle('app:info', () => ({
-		version: app.getVersion(),
+		version: displayAppVersion(),
 		electron: process.versions.electron,
 		chrome: process.versions.chrome,
 		platform: process.platform,
@@ -353,6 +380,12 @@ function registerIpc() {
 }
 
 app.on('second-instance', showMainWindow);
+
+// Fires before the closed windows are torn down, so every real quit path
+// (tray menu, window-all-closed without a tray) unblocks the close handler.
+app.on('before-quit', () => {
+	quitting = true;
+});
 
 app.whenReady().then(() => {
 	if (!DEV_URL) protocol.handle(APP_SCHEME, handleAppRequest);
