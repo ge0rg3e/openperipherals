@@ -64,9 +64,18 @@ export class LogitechTransport {
 		// collections, and each report must be written to the interface that
 		// owns it, so we keep them all and route per report id.
 		for (const device of candidates) {
-			await device.open();
-			this.devices.push(device);
-			this.attachInputListener(device);
+			try {
+				if (!device.opened) await device.open();
+				this.devices.push(device);
+				this.attachInputListener(device);
+			} catch (err) {
+				// Windows denies access to the protected boot-keyboard collection;
+				// the control interfaces stay usable, so only that handle is skipped.
+				logger.warn(`Logitech connect: could not open ${device.productName}: ${err}`);
+			}
+		}
+		if (this.devices.length === 0) {
+			throw new Error('Could not open the granted Logitech device. Close any other app using it (e.g. Logitech G HUB) and retry.');
 		}
 		const device = candidates[0];
 		const spec = getLogitechKeyboard(device.productId);

@@ -11,5 +11,11 @@ contextBridge.exposeInMainWorld('desktop', {
 	isMaximized: () => ipcRenderer.invoke('win:is-maximized'),
 	onMaximized: (cb) => {
 		ipcRenderer.on('win:maximized', (_event, value) => cb(value));
-	}
+	},
+	// Settings / about
+	getAppInfo: () => ipcRenderer.invoke('app:info'),
+	checkForUpdate: () => ipcRenderer.invoke('app:check-update'),
+	downloadUpdate: () => ipcRenderer.send('app:download-update'),
+	getLaunchOnBoot: () => ipcRenderer.invoke('settings:get-launch-on-boot'),
+	setLaunchOnBoot: (value) => ipcRenderer.invoke('settings:set-launch-on-boot', value)
 });

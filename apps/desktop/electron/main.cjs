@@ -4,12 +4,21 @@
 // to peripherals without modification.
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, protocol, net, session, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, protocol, net, session, ipcMain, shell } = require('electron');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const BUILD_DIR = path.join(__dirname, '..', 'build');
+const ICON_PATH = path.join(__dirname, '..', 'resources', 'icon.png');
+const TRAY_ICON_PATH = path.join(__dirname, '..', 'resources', 'tray.png');
 const APP_SCHEME = 'app';
 const APP_ORIGIN = `${APP_SCHEME}://openperipherals`;
+const RELEASES_API = 'https://api.github.com/repos/ge0rg3e/openperipherals/releases/latest';
+const TAGS_API = 'https://api.github.com/repos/ge0rg3e/openperipherals/tags';
+const RELEASES_URL = 'https://github.com/ge0rg3e/openperipherals/releases';
+
+// Launched with --hidden by the login item / XDG autostart entry: start in the
+// tray instead of showing a window.
+const START_HIDDEN_FLAG = '--hidden';
 
 // Tiling window managers handle window placement themselves - the renderer
 // only shows a close button there.
@@ -17,6 +26,17 @@ const TILING_WM = /hyprland|sway|i3|bspwm|dwm|awesome|qtile|river|niri|xmonad/i;
 const IS_TILING_WM = TILING_WM.test(
 	[process.env.XDG_CURRENT_DESKTOP, process.env.XDG_SESSION_DESKTOP, process.env.DESKTOP_SESSION].filter(Boolean).join(':')
 );
+
+let mainWindow = null;
+let tray = null;
+// Latest GitHub release cache - avoids hammering the API on every dialog open.
+let releaseCache = null;
+
+if (!app.requestSingleInstanceLock()) {
+	// A second instance just focuses the running one (important once an
+	// autostart entry can silently keep the app alive).
+	app.quit();
+}
 
 protocol.registerSchemesAsPrivileged([
 	{
@@ -73,13 +93,189 @@ function setupWebHid() {
 	ses.setDevicePermissionHandler((details) => details.deviceType === 'hid');
 }
 
+// --- Start at login -------------------------------------------------------
+
+function autostartFilePath() {
+	const configHome = process.env.XDG_CONFIG_HOME || path.join(app.getPath('home'), '.config');
+	return path.join(configHome, 'autostart', 'openperipherals.desktop');
+}
+
+/** OS truth: registry/login item (win+mac) or the autostart file (linux). */
+function isLaunchOnBootEnabled() {
+	if (process.platform === 'linux') return fs.existsSync(autostartFilePath());
+	try {
+		return app.getLoginItemSettings().openAtLogin;
+	} catch {
+		return false;
+	}
+}
+
+function applyLaunchOnBoot(enabled) {
+	if (process.platform === 'linux') {
+		const file = autostartFilePath();
+		if (!enabled) {
+			fs.rmSync(file, { force: true });
+			return;
+		}
+		fs.mkdirSync(path.dirname(file), { recursive: true });
+		// In dev the electron binary needs the app directory as argument.
+		const execArgs = app.isPackaged ? '' : ` "${app.getAppPath()}"`;
+		fs.writeFileSync(
+			file,
+			[
+				'[Desktop Entry]',
+				'Type=Application',
+				'Name=OpenPeripherals',
+				'Comment=Open-source peripheral configuration suite',
+				`Exec="${process.execPath}"${execArgs} ${START_HIDDEN_FLAG}`,
+				'Icon=openperipherals',
+				'Terminal=false',
+				'X-GNOME-Autostart-enabled=true',
+				''
+			].join('\n')
+		);
+		return;
+	}
+	app.setLoginItemSettings({
+		openAtLogin: enabled,
+		args: [START_HIDDEN_FLAG],
+		...(process.platform === 'darwin' ? { openAsHidden: enabled } : {}),
+		...(app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath(), START_HIDDEN_FLAG] })
+	});
+}
+
+// --- Update check ---------------------------------------------------------
+
+function compareVersions(a, b) {
+	const pa = String(a).replace(/^v/i, '').split('.').map((x) => parseInt(x, 10) || 0);
+	const pb = String(b).replace(/^v/i, '').split('.').map((x) => parseInt(x, 10) || 0);
+	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+		const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+		if (diff !== 0) return diff;
+	}
+	return 0;
+}
+
+function normalizeVersion(name) {
+	return String(name).replace(/^v/i, '');
+}
+
+async function fetchLatestRelease() {
+	const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'OpenPeripherals-Desktop' };
+	let response;
+	try {
+		response = await net.fetch(RELEASES_API, { headers, signal: AbortSignal.timeout(10000) });
+	} catch (err) {
+		throw err instanceof Error ? err : new Error(String(err));
+	}
+
+	if (response.ok) {
+		const data = await response.json();
+		if (data?.tag_name) return { latestVersion: normalizeVersion(data.tag_name), url: String(data.html_url ?? RELEASES_URL) };
+	}
+
+	// 404 means no *published* release exists yet (the CI only creates
+	// releases on tag builds). Fall back to the newest git tag so the check
+	// still reports something sensible before the first release.
+	const tagsResponse = await net.fetch(`${TAGS_API}?per_page=20`, { headers, signal: AbortSignal.timeout(10000) });
+	if (!tagsResponse.ok) throw new Error(`GitHub responded with ${tagsResponse.status}`);
+	const tags = await tagsResponse.json();
+	const names = (Array.isArray(tags) ? tags : []).map((tag) => String(tag?.name ?? '')).filter(Boolean);
+	const newest = names.sort((a, b) => compareVersions(b, a))[0];
+	if (!newest) throw new Error('No release published yet');
+	return { latestVersion: normalizeVersion(newest), url: RELEASES_URL };
+}
+
+async function checkForUpdate() {
+	// Serve a fresh-enough result for 10 minutes.
+	if (releaseCache && Date.now() - releaseCache.checkedAt < 600000) {
+		return { ...releaseCache };
+	}
+	try {
+		const release = await fetchLatestRelease();
+		releaseCache = {
+			...release,
+			upToDate: compareVersions(app.getVersion(), release.latestVersion) >= 0,
+			checkedAt: Date.now()
+		};
+		return { ...releaseCache };
+	} catch (err) {
+		return { upToDate: null, latestVersion: null, url: RELEASES_URL, error: err instanceof Error ? err.message : String(err) };
+	}
+}
+
+// --- Window & tray --------------------------------------------------------
+
+function showMainWindow() {
+	if (!mainWindow || mainWindow.isDestroyed()) {
+		createWindow();
+		return;
+	}
+	if (mainWindow.isMinimized()) mainWindow.restore();
+	mainWindow.show();
+	mainWindow.focus();
+}
+
+function toggleMainWindow() {
+	const visible = mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized();
+	if (visible) mainWindow.hide();
+	else showMainWindow();
+}
+
+function createTray() {
+	try {
+		tray = new Tray(TRAY_ICON_PATH);
+	} catch {
+		return; // platform without tray support
+	}
+	tray.setToolTip('OpenPeripherals');
+	tray.on('click', toggleMainWindow);
+	rebuildTrayMenu();
+}
+
+function rebuildTrayMenu() {
+	if (!tray) return;
+	tray.setContextMenu(
+		Menu.buildFromTemplate([
+			{ label: 'Open OpenPeripherals', click: showMainWindow },
+			{ type: 'separator' },
+			{
+				label: 'Start at login',
+				type: 'checkbox',
+				checked: isLaunchOnBootEnabled(),
+				click: (item) => {
+					applyLaunchOnBoot(item.checked);
+					rebuildTrayMenu();
+				}
+			},
+			{ type: 'separator' },
+			{ label: 'Quit OpenPeripherals', click: () => app.quit() }
+		])
+	);
+}
+
+/** True when the OS started us (login item / autostart): boot into the tray. */
+function launchedHidden() {
+	if (process.argv.includes(START_HIDDEN_FLAG)) return true;
+	if (process.platform === 'darwin') {
+		try {
+			return app.getLoginItemSettings().wasOpenedAtLogin;
+		} catch {
+			return false;
+		}
+	}
+	return false;
+}
+
 function createWindow() {
 	const win = new BrowserWindow({
 		width: 1360,
 		height: 860,
+		show: false,
 		frame: false,
 		autoHideMenuBar: true,
-		title: 'OpenPeripherals',
+		title: 'OpenPeripherals (Beta)',
+		icon: ICON_PATH,
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -87,9 +283,19 @@ function createWindow() {
 		}
 	});
 
+	mainWindow = win;
+
+	win.once('ready-to-show', () => {
+		if (!launchedHidden()) win.show();
+	});
+
 	win.on('page-title-updated', (event) => event.preventDefault());
 
-	registerWindowControls(win);
+	const sendMaximized = () => {
+		if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized());
+	};
+	win.on('maximize', sendMaximized);
+	win.on('unmaximize', sendMaximized);
 
 	if (DEV_URL) {
 		win.loadURL(DEV_URL.replace(/\/+$/, '') + '/app');
@@ -101,29 +307,64 @@ function createWindow() {
 	return win;
 }
 
-function registerWindowControls(win) {
-	ipcMain.on('win:minimize', () => win.minimize());
-	ipcMain.on('win:maximize', () => (win.isMaximized() ? win.unmaximize() : win.maximize()));
-	ipcMain.on('win:close', () => win.close());
-	ipcMain.handle('win:is-maximized', () => win.isMaximized());
+// Registered exactly once - createWindow() can run again after the window was
+// closed and re-opened from the tray, and ipcMain.handle() throws on a
+// duplicate channel registration.
+function registerIpc() {
+	ipcMain.on('win:minimize', () => mainWindow?.minimize());
+	ipcMain.on('win:maximize', () => {
+		if (!mainWindow) return;
+		if (mainWindow.isMaximized()) mainWindow.unmaximize();
+		else mainWindow.maximize();
+	});
+	ipcMain.on('win:close', () => mainWindow?.close());
+	ipcMain.handle('win:is-maximized', () => mainWindow?.isMaximized() ?? false);
 	// Read in the main process: sandboxed preloads have no process.env access.
 	ipcMain.handle('win:env', () => ({ isTilingWM: IS_TILING_WM }));
 
-	const sendMaximized = () => {
-		if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized());
-	};
-	win.on('maximize', sendMaximized);
-	win.on('unmaximize', sendMaximized);
+	// --- Settings / about ---
+	ipcMain.handle('app:info', () => ({
+		version: app.getVersion(),
+		electron: process.versions.electron,
+		chrome: process.versions.chrome,
+		platform: process.platform,
+		packaged: app.isPackaged
+	}));
+	ipcMain.handle('app:check-update', () => checkForUpdate());
+	// The URL never crosses IPC from the renderer; main only opens what the
+	// GitHub API returned.
+	ipcMain.on('app:download-update', () => {
+		void shell.openExternal(releaseCache?.url ?? RELEASES_URL);
+	});
+	ipcMain.handle('settings:get-launch-on-boot', () => isLaunchOnBootEnabled());
+	ipcMain.handle('settings:set-launch-on-boot', (_event, value) => {
+		try {
+			applyLaunchOnBoot(Boolean(value));
+			rebuildTrayMenu();
+			return { ok: true, enabled: isLaunchOnBootEnabled() };
+		} catch (err) {
+			return {
+				ok: false,
+				enabled: isLaunchOnBootEnabled(),
+				error: err instanceof Error ? err.message : String(err)
+			};
+		}
+	});
 }
+
+app.on('second-instance', showMainWindow);
 
 app.whenReady().then(() => {
 	if (!DEV_URL) protocol.handle(APP_SCHEME, handleAppRequest);
 	setupWebHid();
+	registerIpc();
 
 	createWindow();
+	createTray();
 
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
+		else showMainWindow();
 	});
 });
 

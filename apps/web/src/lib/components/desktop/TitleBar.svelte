@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Minus, Square, X, Copy } from '@lucide/svelte';
+	import { Minus, Square, X, Copy, Settings as SettingsIcon } from '@lucide/svelte';
+	import SettingsDialog from './SettingsDialog.svelte';
 
 	interface DesktopApi {
 		env: () => Promise<{ isTilingWM: boolean }>;
@@ -13,6 +14,7 @@
 	let api = $state<DesktopApi | null>(null);
 	let maximized = $state(false);
 	let showWindowControls = $state(false);
+	let settingsOpen = $state(false);
 
 	$effect(() => {
 		const desktop = (window as unknown as { desktop?: DesktopApi }).desktop;
@@ -30,11 +32,17 @@
 
 {#if api}
 	<div
-		class="titlebar sticky top-0 z-50 flex h-9 w-full shrink-0 items-center justify-between border-b border-border/60 bg-[#0a0c0e] pl-3 select-none"
+		class="titlebar relative z-50 flex h-9 w-full shrink-0 items-center justify-between border-b border-border/60 bg-[#0a0c0e] pl-3 select-none"
 		ondblclick={onDoubleClick}
 	>
-		<span class="pointer-events-none text-xs font-semibold tracking-tight text-muted-foreground">OpenPeripherals</span>
+		<span class="pointer-events-none flex items-center gap-1.5 text-xs font-semibold tracking-tight text-muted-foreground">
+			OpenPeripherals
+			<span class="rounded-full bg-secondary/80 px-1.5 py-0 text-[9px] font-medium uppercase text-secondary-foreground/80">beta</span>
+		</span>
 		<div class="flex h-full items-stretch">
+			<button class="control" aria-label="Settings" onclick={() => (settingsOpen = true)}>
+				<SettingsIcon class="h-3.5 w-3.5" />
+			</button>
 			{#if showWindowControls}
 				<button class="control" aria-label="Minimize window" onclick={() => api?.minimize()}>
 					<Minus class="h-3.5 w-3.5" />
@@ -53,6 +61,8 @@
 		</div>
 	</div>
 {/if}
+
+<SettingsDialog bind:open={settingsOpen} />
 
 <style>
 	.titlebar {

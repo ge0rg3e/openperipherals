@@ -36,15 +36,17 @@
 	<meta name="theme-color" content="#0a0c0e" />
 </svelte:head>
 
-<div class="min-h-screen w-full py-6 px-2 sm:px-3 lg:px-4">
+<div class="min-h-full w-full py-6 px-2 sm:px-3 lg:px-4">
 	<div class="mx-auto flex max-w-7xl flex-col gap-6">
-		<!-- Header -->
-		<header class="flex items-center justify-between gap-3">
-			<h1 class="flex items-center gap-2 text-lg font-bold tracking-tight">
-				OpenPeripherals
-				<Badge variant="secondary" class="rounded-full px-1.5 py-0 text-[10px]">beta</Badge>
-			</h1>
-		</header>
+		<!-- Header (web only - the desktop shell has its own title bar) -->
+		{#if !isDesktopApp()}
+			<header class="flex items-center justify-between gap-3">
+				<h1 class="flex items-center gap-2 text-lg font-bold tracking-tight">
+					OpenPeripherals
+					<Badge variant="secondary" class="rounded-full px-1.5 py-0 text-[10px]">beta</Badge>
+				</h1>
+			</header>
+		{/if}
 
 		{#if $sessions.length > 0}
 			<!-- Device rail -->

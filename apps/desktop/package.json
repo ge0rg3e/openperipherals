@@ -22,12 +22,16 @@
 		"appId": "com.ge0rg3e.openperipherals",
 		"productName": "OpenPeripherals",
 		"executableName": "openperipherals",
-		"files": ["electron/**", "scripts/**", "build/**", "package.json"],
+		"files": ["electron/**", "scripts/**", "resources/**", "build/**", "package.json"],
+		"directories": {
+			"buildResources": "resources"
+		},
 		"electronDist": "../../node_modules/electron/dist",
 		"linux": {
 			"target": ["deb", "pacman"],
 			"category": "Utility",
 			"maintainer": "Ge0rg3e",
+			"icon": "resources/icon.png",
 			"artifactName": "OpenPeripherals-${version}-${arch}.${ext}"
 		},
 		"deb": {
@@ -40,14 +44,17 @@
 		"nsis": {
 			"oneClick": false,
 			"allowToChangeInstallationDirectory": true,
+			"icon": "resources/icon.ico",
 			"artifactName": "OpenPeripherals-${version}-${arch}-setup.${ext}"
 		},
 		"win": {
 			"target": "nsis",
+			"icon": "resources/icon.ico",
 			"artifactName": "OpenPeripherals-${version}-${arch}-setup.${ext}"
 		},
 		"mac": {
 			"target": "dmg",
+			"icon": "resources/icon.png",
 			"artifactName": "OpenPeripherals-macos-${arch}.${ext}"
 		}
 	}

@@ -172,53 +172,82 @@ async function ingestDevices(
 	const redragonDevices = granted.filter((d) => d.vendorId === REDRAGON_VID && REDRAGON_SUPPORTED_PIDS.includes(d.productId));
 	const razerDevices = granted.filter((d) => d.vendorId === 0x1532 && getKeyboard(d.productId) !== undefined);
 
+	// One brand failing to claim its device (Windows denies opening protected
+	// keyboard collections, another app holds the handle, ...) must not stop
+	// the remaining brands from connecting.
+	const brandErrors: string[] = [];
+	const attempt = async (label: string, connect: () => Promise<DeviceSession>) => {
+		try {
+			created.push(await connect());
+		} catch (err) {
+			const detail = err instanceof Error ? err.message : String(err);
+			brandErrors.push(`${label}: ${detail}`);
+			logger.warn(`${label} connect failed: ${detail}`);
+		}
+	};
+
 	if (logiDevices.length > 0 && !existingKeys.has(deviceKeyOf(logiDevices[0]))) {
-		const controller = new LogitechKeyboardController();
-		const info = await controller.connect(logiDevices as never);
-		created.push({
-			id: `kb-${nextSessionId++}`,
-			kind: 'keyboard',
-			vendor: 'logitech',
-			pid: info.pid,
-			name: info.name,
-			serial: info.serial,
-			firmware: info.firmware,
-			deviceKey: deviceKeyOf(logiDevices[0]),
-			controller,
-			info: { ...info, vendor: 'logitech' }
+		await attempt('Logitech', async () => {
+			const controller = new LogitechKeyboardController();
+			const info = await controller.connect(logiDevices as never);
+			return {
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'logitech',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(logiDevices[0]),
+				controller,
+				info: { ...info, vendor: 'logitech' }
+			} satisfies DeviceSession;
 		});
 	}
 	if (redragonDevices.length > 0 && !existingKeys.has(deviceKeyOf(redragonDevices[0]))) {
-		const controller = new RedragonKeyboardController();
-		const info = await controller.connect(redragonDevices as never);
-		created.push({
-			id: `kb-${nextSessionId++}`,
-			kind: 'keyboard',
-			vendor: 'redragon',
-			pid: info.pid,
-			name: info.name,
-			serial: info.serial,
-			firmware: info.firmware,
-			deviceKey: deviceKeyOf(redragonDevices[0]),
-			controller,
-			info: { ...info, vendor: 'redragon' }
+		await attempt('Redragon', async () => {
+			const controller = new RedragonKeyboardController();
+			const info = await controller.connect(redragonDevices as never);
+			return {
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'redragon',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(redragonDevices[0]),
+				controller,
+				info: { ...info, vendor: 'redragon' }
+			} satisfies DeviceSession;
 		});
 	}
 	if (razerDevices.length > 0 && !existingKeys.has(deviceKeyOf(razerDevices[0]))) {
-		const controller = new KeyboardController();
-		const info = await controller.connect(razerDevices as unknown as Parameters<WebHidTransport['open']>[0]);
-		created.push({
-			id: `kb-${nextSessionId++}`,
-			kind: 'keyboard',
-			vendor: 'razer',
-			pid: info.pid,
-			name: info.name,
-			serial: info.serial,
-			firmware: info.firmware,
-			deviceKey: deviceKeyOf(razerDevices[0]),
-			controller,
-			info: { ...info, vendor: 'razer' }
+		await attempt('Razer', async () => {
+			const controller = new KeyboardController();
+			const info = await controller.connect(razerDevices as unknown as Parameters<WebHidTransport['open']>[0]);
+			return {
+				id: `kb-${nextSessionId++}`,
+				kind: 'keyboard',
+				vendor: 'razer',
+				pid: info.pid,
+				name: info.name,
+				serial: info.serial,
+				firmware: info.firmware,
+				deviceKey: deviceKeyOf(razerDevices[0]),
+				controller,
+				info: { ...info, vendor: 'razer' }
+			} satisfies DeviceSession;
 		});
+	}
+	if (created.length === 0 && brandErrors.length > 0) {
+		// A supported keyboard was detected but could not be claimed.
+		if (!opts.silent) {
+			throw new Error(
+				`${brandErrors.join(' ')} Close any other app using the device (Razer Synapse, Logitech G HUB) and reconnect.`
+			);
+		}
+		return;
 	}
 	if (created.length === 0) {
 		// No keyboard matched - try the mouse drivers.
