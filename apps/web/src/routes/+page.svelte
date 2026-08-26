@@ -1,34 +1,60 @@
 <script lang="ts">
-import { Button } from '$lib/components/ui/button';
-import { Badge } from '$lib/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 
-import { KEYBOARD_DEVICES } from '$lib/razer/devices';
+	import { KEYBOARD_DEVICES } from '$lib/razer/devices';
 	import { LOGITECH_DEVICES } from '$lib/logitech/devices';
 	import { REDRAGON_DEVICES } from '$lib/redragon/devices';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Download } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import pkg from '../../package.json' with { type: 'json' };
 
 	function openWebApp() {
 		goto('/app');
 	}
 
-	// Desktop builds are published on GitHub Releases with stable artifact
-	// names, so "latest/download" always resolves to the newest build.
 	const RELEASES_URL = 'https://github.com/ge0rg3e/openperipherals/releases';
+	const APP_VERSION = (pkg as { version: string }).version;
+
 	const DESKTOP_DOWNLOADS: Record<string, { label: string; href: string }> = {
-		windows: { label: 'Windows (x64)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-windows-x64-setup.exe` },
-		debian: { label: 'Debian / Ubuntu (.deb)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-linux-x64.deb` },
-		arch: { label: 'Arch Linux (.pacman)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-linux-x64.pacman` }
+		windows: { label: 'Windows (x64)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-${APP_VERSION}-x64-setup.exe` },
+		debian: { label: 'Debian / Ubuntu (.deb)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-${APP_VERSION}-amd64-debian.deb` },
+		arch: { label: 'Arch Linux (.pacman)', href: `${RELEASES_URL}/latest/download/OpenPeripherals-${APP_VERSION}-x64-arch.pacman` }
 	};
 
+	// pacman default: RemoteFileSigLevel=Required → `pacman -U <url>` 404s on .sig for unsigned packages.
+	// Short Arch flow: download (triggered automatically) + local install (LocalFileSigLevel=Optional handles unsigned).
+	const ARCH_INSTALL_CMD = `sudo pacman -U ~/Downloads/OpenPeripherals-${APP_VERSION}-x64-arch.pacman`;
+
 	let downloadOs = $state('');
+	let archCopied = $state(false);
+	let showArchInstructions = $state(false);
+
+	async function copyArchCommand() {
+		try {
+			await navigator.clipboard.writeText(ARCH_INSTALL_CMD);
+			archCopied = true;
+			showArchInstructions = true;
+			setTimeout(() => (archCopied = false), 2000);
+		} catch {
+			/* clipboard unavailable - still show instructions */
+			showArchInstructions = true;
+		}
+	}
+
 	function downloadDesktop(os: string) {
-		const target = DESKTOP_DOWNLOADS[os];
 		downloadOs = '';
-		if (target) window.open(target.href, '_blank', 'noopener');
+		const target = DESKTOP_DOWNLOADS[os];
+		if (!target) return;
+		if (os === 'arch') {
+			window.open(target.href, '_blank', 'noopener');
+			copyArchCommand();
+			return;
+		}
+		window.open(target.href, '_blank', 'noopener');
 	}
 
 	const linuxSetupCommands = `sudo tee /etc/udev/rules.d/55-openperipherals.rules <<'EOF'
@@ -244,6 +270,22 @@ sudo udevadm trigger`;
 				Desktop builds are served from
 				<a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">GitHub Releases</a>.
 			</p>
+			{#if showArchInstructions}
+				<div class="mx-auto mt-4 max-w-xl rounded-xl border border-border/60 bg-card p-4 text-left">
+					<h3 class="text-sm font-semibold">Arch Linux</h3>
+					<div class="relative mt-3">
+						<button
+							type="button"
+							class="absolute right-1.5 top-1.5 z-10 rounded bg-sky-500/20 px-2 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-500/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-300"
+							onclick={copyArchCommand}
+						>
+							{archCopied ? 'Copied!' : 'Copy'}
+						</button>
+						<pre class="overflow-x-auto rounded-lg border border-border/60 bg-background px-4 py-3 pr-16 font-mono text-xs leading-relaxed text-sky-100">{ARCH_INSTALL_CMD}</pre>
+					</div>
+					<p class="mt-2 text-xs text-muted-foreground">download starts automatically → run above in terminal → open <span class="font-mono text-foreground">OpenPeripherals</span> in app launcher</p>
+				</div>
+			{/if}
 		</section>
 
 		<!-- Features -->
@@ -330,8 +372,8 @@ sudo udevadm trigger`;
 				<div class="mt-8 rounded-xl border border-border/60 bg-card p-6">
 					<h3 class="text-sm font-semibold">Linux needs a one-time permission fix</h3>
 					<p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-						Browsers talk to your device through the WebHID API, which on Linux is guarded by the OS.<br />By default your device is only readable, not writable, so the app connects
-						but the lighting controls do nothing until a small udev rule grants access.
+						Browsers talk to your device through the WebHID API, which on Linux is guarded by the OS.<br />By default your device is only readable, not writable, so the app connects but
+						the lighting controls do nothing until a small udev rule grants access.
 					</p>
 					<p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
 						If "Connect Device" looks like it worked but nothing changes, run these three lines in a terminal, then unplug and replug your device (or reboot):
