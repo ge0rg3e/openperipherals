@@ -81,15 +81,43 @@ export default class SceneManager extends Collection {
 		this.camera.aspect = w / h;
 		this.camera.updateProjectionMatrix();
 		this.renderer.setSize(w, h);
+		this.updateCamera();
 	}
 	setupCamera() {
 		this.camera = new THREE.PerspectiveCamera(60, this.w / this.h, 1, 1000);
+		this._target = new THREE.Vector3(0, 1.4, 3.2);
 		// near top-down "flat" product shot, framed on the board itself
 		this.camera.position.y = 9.6;
 		this.camera.position.z = 3.6;
 		this.camera.position.x = 0;
 		// aim at the board's centre so it sits centred/high in frame
-		this.camera.lookAt(new THREE.Vector3(0, 1.4, 3.2));
+		this.camera.lookAt(this._target);
+		this._boardWidth = 23.5;
+		this._boardDepth = 7.25;
+		this.updateCamera();
+	}
+	setBoardSize(width, depth) {
+		this._boardWidth = width;
+		this._boardDepth = depth;
+		this.updateCamera();
+	}
+	updateCamera() {
+		if (!this.camera || !this._target) return;
+		const w = this._boardWidth || 23.5;
+		const d = this._boardDepth || 7.25;
+		const padding = 1.06;
+		const aspect = this.camera.aspect || 1;
+		const vFOV = THREE.MathUtils.degToRad(this.camera.fov);
+		const hFOV = 2 * Math.atan(Math.tan(vFOV / 2) * aspect);
+		const neededW = (w / 2 * padding) / Math.tan(hFOV / 2);
+		const neededD = (d / 2 * padding) / Math.tan(vFOV / 2);
+		const needed = Math.max(neededW, neededD, 6);
+		const targetY = this._target.y;
+		const targetZ = this._target.z;
+		const dz = this.camera.position.z - targetZ;
+		const dy = Math.sqrt(Math.max(0, needed * needed - dz * dz));
+		this.camera.position.y = targetY + Math.max(dy, needed * 0.98);
+		this.camera.lookAt(this._target);
 	}
 	setupLights() {
 		let ambiant = new THREE.AmbientLight('#ffffff', 0.5);

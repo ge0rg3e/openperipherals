@@ -3,7 +3,7 @@
 	import type { EffectKind } from '$lib/index';
 	import type { EffectParams } from '$lib/controller';
 	import KeyboardPreview from '$lib/components/KeyboardPreview.svelte';
-	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Label } from '$lib/components/ui/label';
@@ -208,9 +208,9 @@
 </script>
 
 {#if kbSession && controller}
-	<div class="flex flex-col gap-3">
+	<div class="flex min-h-0 flex-1 flex-col gap-3">
 		<!-- Device identity -->
-		<div class="flex flex-wrap items-center justify-between gap-2">
+		<div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
 			<div class="flex flex-wrap items-center gap-2">
 				{#if brandLogo(vendor)}
 					<img src={brandLogo(vendor)} alt={vendor} class="h-5 w-auto shrink-0 object-contain" />
@@ -234,10 +234,10 @@
 			{/if}
 		</div>
 
-		<div class="grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
+		<div class="flex min-h-0 flex-1 flex-col gap-4">
 			<!-- Keyboard stage -->
-			<section class="flex flex-col gap-3">
-				<div class="relative h-[340px] overflow-hidden rounded-2xl bg-gradient-to-b from-zinc-950 via-[#0a0c0e] to-black shadow-2xl shadow-black/50">
+			<section class="flex min-h-0 flex-1 flex-col">
+				<div class="relative min-h-[320px] flex-1 overflow-hidden rounded-2xl bg-transparent p-4 sm:p-6">
 					<KeyboardPreview
 						preview={kind}
 						layout={kbd?.layout ?? lkb?.layout ?? rkb?.layout ?? 'full'}
@@ -247,20 +247,18 @@
 						onKeyClick={kind === 'custom' && canCustom ? paintKey : null}
 					/>
 				</div>
-				<p class="text-xs text-muted-foreground">Keys mirror the chosen effect in real time and press along with your physical board.</p>
 			</section>
 
 			<!-- Controls -->
-			<Card class="border-transparent">
-				<CardHeader class="pb-2">
-					<CardTitle class="flex items-center gap-2.5 text-sm font-semibold">
-						<span class="flex size-7 items-center justify-center rounded-full bg-primary">
-							<Palette class="size-4 text-primary-foreground" />
+			<Card size="sm" class="shrink-0 border-transparent">
+				<CardContent class="flex flex-col gap-3">
+					<div class="flex items-center gap-2">
+						<span class="flex size-6 items-center justify-center rounded-full bg-primary">
+							<Palette class="size-3.5 text-primary-foreground" />
 						</span>
-						Effect
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="flex flex-col gap-4">
+						<span class="text-sm font-semibold">Effect</span>
+					</div>
+
 					<EffectPicker
 						options={effectList.map(([value, label]) => ({ value, label }))}
 						selected={kind}
@@ -271,75 +269,64 @@
 					/>
 
 					{#if hasOptions}
-						<Separator />
-					{/if}
+						<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+							{#if showMode}
+								<div class="flex items-center gap-1.5">
+									<span class="text-xs text-muted-foreground">Mode</span>
+									{#each ['single', 'dual', 'random'] as m}
+										<Button variant={breathingMode === m ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs capitalize" onclick={() => (breathingMode = m as typeof breathingMode)}>
+											{m}
+										</Button>
+									{/each}
+								</div>
+							{/if}
 
-					{#if showMode}
-						<div class="flex flex-wrap gap-1.5">
-							{#each ['single', 'dual', 'random'] as m}
-								<Button variant={breathingMode === m ? 'default' : 'outline'} size="sm" class="h-8 capitalize" onclick={() => (breathingMode = m as typeof breathingMode)}>
-									{m}
-								</Button>
-							{/each}
-						</div>
-					{/if}
+							{#if showColor1}
+								<div class="flex items-center gap-2">
+									<Label class="shrink-0 text-xs text-muted-foreground">Color</Label>
+									<ColorField bind:value={color1} label="Primary colour" class="h-8 w-36" />
+								</div>
+								{#if showColor2}
+									<div class="flex items-center gap-2">
+										<Label class="shrink-0 text-xs text-muted-foreground">Color 2</Label>
+										<ColorField bind:value={color2} label="Secondary colour" class="h-8 w-36" />
+									</div>
+								{/if}
+							{/if}
 
-					{#if showColor1}
-						<div class="grid grid-cols-2 gap-2">
-							<div class="flex flex-col gap-1.5">
-								<Label class="text-sm">Color</Label>
-								<ColorField bind:value={color1} label="Primary colour" />
-							</div>
-							{#if showColor2}
-								<div class="flex flex-col gap-1.5">
-									<Label class="text-sm">Color 2</Label>
-									<ColorField bind:value={color2} label="Secondary colour" />
+							{#if showSpeed}
+								<div class="flex min-w-48 flex-1 items-center gap-2">
+									<Label class="shrink-0 text-xs text-muted-foreground">Speed</Label>
+									<Slider type="single" value={speed} onValueChange={(v) => (speed = v as number)} min={1} max={4} step={1} />
+									<span class="w-12 shrink-0 text-right text-xs text-muted-foreground">{['', 'Fast', 'Medium', 'Slow', 'Slowest'][speed]}</span>
+								</div>
+							{/if}
+
+							{#if showDirection}
+								<div class="flex items-center gap-1.5">
+									<Button variant={direction === 'left' ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs" onclick={() => (direction = 'left')}>← Left</Button>
+									<Button variant={direction === 'right' ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs" onclick={() => (direction = 'right')}>Right →</Button>
 								</div>
 							{/if}
 						</div>
 					{/if}
 
-					{#if showSpeed}
-						<div class="flex flex-col gap-2">
-							<div class="flex items-center justify-between">
-								<Label class="text-sm">Speed</Label>
-								<span class="text-xs text-muted-foreground">{['', 'Fast', 'Medium', 'Slow', 'Slowest'][speed]}</span>
-							</div>
-							<Slider type="single" value={speed} onValueChange={(v) => (speed = v as number)} min={1} max={4} step={1} />
-						</div>
-					{/if}
-
-					{#if showDirection}
-						<div class="grid grid-cols-2 gap-1.5">
-							<Button variant={direction === 'left' ? 'default' : 'outline'} size="sm" onclick={() => (direction = 'left')}>← Left</Button>
-							<Button variant={direction === 'right' ? 'default' : 'outline'} size="sm" onclick={() => (direction = 'right')}>Right →</Button>
-						</div>
-					{/if}
-
 					{#if kind === 'custom' && canCustom}
-						<Separator />
-						<div class="flex flex-col gap-2.5">
-						<div class="flex flex-col gap-1.5">
-							<Label class="text-sm">Paint colour</Label>
-							<ColorField bind:value={paintColor} label="Paint colour" />
-						</div>
-						<div class="flex gap-1.5">
-								<Button variant="outline" size="sm" class="flex-1 text-xs" onclick={() => (customColors = {})}>Clear</Button>
-								<Button variant="outline" size="sm" class="flex-1 text-xs" onclick={fillCustom}>Fill all</Button>
-							</div>
-							<span class="text-[10px] leading-relaxed text-muted-foreground">
-								Click keys on the device to paint them. Per-key lighting is host-rendered and resets when the device powers off.
+						<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+							<Label class="shrink-0 text-xs text-muted-foreground">Paint</Label>
+							<ColorField bind:value={paintColor} label="Paint colour" class="h-8 w-36" />
+							<Button variant="outline" size="sm" class="h-7 px-2.5 text-xs" onclick={() => (customColors = {})}>Clear</Button>
+							<Button variant="outline" size="sm" class="h-7 px-2.5 text-xs" onclick={fillCustom}>Fill all</Button>
+							<span class="text-[10px] text-muted-foreground" title="Per-key lighting is host-rendered and resets when the device powers off.">
+								Click keys on the device to paint them
 							</span>
 						</div>
 					{/if}
 
 					<Separator />
 
-					<div class="flex flex-col gap-2">
-						<div class="flex items-center justify-between">
-							<Label class="text-sm">Brightness</Label>
-							<span class="w-11 text-right font-mono text-xs tabular-nums">{Math.round((brightness / 255) * 100)}%</span>
-						</div>
+					<div class="flex items-center gap-3">
+						<Label class="shrink-0 text-sm">Brightness</Label>
 						<Slider
 							type="single"
 							value={brightness}
@@ -351,18 +338,14 @@
 							max={255}
 							step={1}
 						/>
+						<span class="w-10 shrink-0 text-right font-mono text-xs tabular-nums">{Math.round((brightness / 255) * 100)}%</span>
 					</div>
 
 					{#if vendor === 'razer'}
-						<Separator />
-						<div class="flex flex-col gap-3">
+						<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
 							<span class="text-xs font-medium tracking-wider text-muted-foreground uppercase">Device</span>
-
-							<div class="flex items-center justify-between gap-3">
-								<div class="flex flex-col">
-									<Label class="text-sm">Game mode</Label>
-									<span class="text-xs text-muted-foreground">Disables the Windows key</span>
-								</div>
+							<div class="flex items-center gap-2" title="Disables the Windows key">
+								<Label class="text-sm">Game mode</Label>
 								<Switch
 									checked={gameMode}
 									onCheckedChange={(c) => {
@@ -371,12 +354,8 @@
 									}}
 								/>
 							</div>
-
-							<div class="flex items-center justify-between gap-3">
-								<div class="flex flex-col">
-									<Label class="text-sm">Macro key lights</Label>
-									<span class="text-xs text-muted-foreground">M1-M5 backlight</span>
-								</div>
+							<div class="flex items-center gap-2" title="M1-M5 backlight">
+								<Label class="text-sm">Macro key lights</Label>
 								<Switch
 									checked={macroLeds}
 									onCheckedChange={(c) => {

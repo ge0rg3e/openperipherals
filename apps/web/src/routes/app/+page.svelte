@@ -36,8 +36,8 @@
 	<meta name="theme-color" content="#0a0c0e" />
 </svelte:head>
 
-<div class="min-h-full w-full py-6 px-2 sm:px-3 lg:px-4">
-	<div class="mx-auto flex max-w-7xl flex-col gap-6">
+<div class="h-full w-full overflow-hidden px-2 py-4 sm:px-3 lg:px-4">
+	<div class="mx-auto flex h-full max-w-7xl flex-col gap-4">
 		<!-- Header (web only - the desktop shell has its own title bar) -->
 		{#if !isDesktopApp()}
 			<header class="flex items-center justify-between gap-3">
@@ -113,7 +113,9 @@
 			{#if active.kind === 'keyboard'}
 				<KeyboardWorkspace sessionId={active.id} />
 			{:else}
-				<MousePanel sessionId={active.id} />
+				<div class="min-h-0 flex-1 overflow-y-auto">
+					<MousePanel sessionId={active.id} />
+				</div>
 			{/if}
 		{/if}
 	</div>

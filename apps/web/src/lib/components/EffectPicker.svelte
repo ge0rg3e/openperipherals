@@ -41,31 +41,26 @@
 	}
 </script>
 
-<div class="flex max-h-72 flex-col gap-1 overflow-y-auto pr-0.5">
+<div class="flex flex-wrap gap-1.5">
 	{#each options as option (option.value)}
 		{@const pk = previewKind(option.value)}
 		<button
 			type="button"
 			disabled={disabled}
 			aria-pressed={selected === option.value}
+			title={descriptions[pk]}
 			onclick={() => onSelect(option.value)}
 			class={cn(
-				'flex w-full items-center gap-3 rounded-xl border px-2 py-1.5 text-left transition-colors',
+				'flex items-center gap-2 rounded-lg border py-1 pl-1 pr-2.5 transition-colors',
 				selected === option.value
 					? 'border-primary/60 bg-primary/10'
 					: 'border-transparent bg-secondary/50 hover:bg-secondary'
 			)}
 		>
 			<span class="effect-preview effect-{pk}" aria-hidden="true">
-			{#each Array(12) as _, i}<span class="pk"></span>{/each}
-		</span>
-			<span class="flex min-w-0 flex-col">
-				<span class="text-sm font-medium">{option.label}</span>
-				<span class="truncate text-xs text-muted-foreground">{descriptions[pk]}</span>
+				{#each Array(12) as _, i}<span class="pk"></span>{/each}
 			</span>
-			{#if selected === option.value}
-				<span class="ml-auto size-2 shrink-0 rounded-full bg-primary"></span>
-			{/if}
+			<span class="text-xs font-medium">{option.label}</span>
 		</button>
 	{/each}
 </div>
@@ -76,12 +71,12 @@
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
 		grid-template-rows: repeat(3, 1fr);
-		gap: 2px;
+		gap: 1.5px;
 		flex: none;
-		width: 44px;
-		height: 30px;
-		padding: 4px 5px;
-		border-radius: 8px;
+		width: 34px;
+		height: 24px;
+		padding: 3px 4px;
+		border-radius: 6px;
 		background: #0b0d0f;
 		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
 		overflow: hidden;

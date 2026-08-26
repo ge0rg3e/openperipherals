@@ -9,21 +9,18 @@
   const devMode =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("dev");
-
-  // In the desktop shell the window never scrolls as a whole: the title bar
-  // stays pinned and the content area below it owns the scrollbar.
-  const desktop =
-    typeof navigator !== "undefined" && /Electron/i.test(navigator.userAgent);
 </script>
 
 <svelte:head><link rel="icon" href="/favicon.png" /></svelte:head>
-<div class="relative flex min-h-dvh flex-col {desktop ? 'h-dvh overflow-hidden' : ''}">
+<!-- The whole app lives in exactly one viewport: the window never scrolls,
+     content is sized to fit what remains below the title bar. -->
+<div class="relative flex h-dvh flex-col overflow-hidden">
   <TitleBar />
   {#if devMode}
     <DevLog />
   {/if}
   <Toaster />
-  <div class="min-h-0 flex-1 {desktop ? 'overflow-y-auto' : ''}">
+  <div class="min-h-0 flex-1 overflow-hidden">
     {@render children()}
   </div>
 </div>

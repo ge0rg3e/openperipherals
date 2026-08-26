@@ -136,19 +136,47 @@ export const keyTexture = (opts) => {
 			l.fontsize + (groups.alphas.includes(key) ? l.offsetY : l.yOffsetMod) + ent_off_y
 		);
 	} else {
-		//blank caps (e.g. spacebar) still get a soft backlight pool
-		const glow = ctx.createRadialGradient(
-			canvas.width / 2,
-			canvas.height / 2,
-			0,
-			canvas.width / 2,
-			canvas.height / 2,
-			Math.min(canvas.width, canvas.height) * 0.45
-		);
-		glow.addColorStop(0, 'rgba(255,255,255,0.5)');
-		glow.addColorStop(1, 'rgba(255,255,255,0)');
-		ctx.fillStyle = glow;
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		// blank caps (e.g. spacebar) - use a soft horizontal bar "----"
+		// instead of a radial pool. The old circular glow looked like a
+		// weird spotlight dot on wide keys, especially the 6.25u spacebar.
+		const cx = canvas.width / 2;
+		const cy = canvas.height / 2;
+		const isWide = w > 1.5;
+		if (isWide) {
+			ctx.save();
+			// soft horizontal pill "----" - subtle, not a huge block
+			ctx.shadowColor = 'rgba(255,255,255,0.48)';
+			ctx.shadowBlur = canvas.height * 0.20;
+			ctx.fillStyle = 'rgba(255,255,255,0.36)';
+			const barW = canvas.width * 0.42;
+			const barH = Math.max(6, canvas.height * 0.14);
+			const bx = (canvas.width - barW) / 2;
+			const by = (canvas.height - barH) / 2;
+			const r = barH / 2;
+			ctx.beginPath();
+			if (typeof ctx.roundRect === 'function') {
+				ctx.roundRect(bx, by, barW, barH, r);
+			} else {
+				ctx.moveTo(bx + r, by);
+				ctx.lineTo(bx + barW - r, by);
+				ctx.quadraticCurveTo(bx + barW, by, bx + barW, by + r);
+				ctx.lineTo(bx + barW, by + barH - r);
+				ctx.quadraticCurveTo(bx + barW, by + barH, bx + barW - r, by + barH);
+				ctx.lineTo(bx + r, by + barH);
+				ctx.quadraticCurveTo(bx, by + barH, bx, by + barH - r);
+				ctx.lineTo(bx, by + r);
+				ctx.quadraticCurveTo(bx, by, bx + r, by);
+				ctx.closePath();
+			}
+			ctx.fill();
+			ctx.restore();
+		} else {
+			const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(canvas.width, canvas.height) * 0.45);
+			glow.addColorStop(0, 'rgba(255,255,255,0.5)');
+			glow.addColorStop(1, 'rgba(255,255,255,0)');
+			ctx.fillStyle = glow;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 	}
 
 	ctx.shadowBlur = 0;

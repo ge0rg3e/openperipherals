@@ -3,6 +3,7 @@ import SceneManager from './sceneManager';
 import CaseManager from './caseManager';
 import KeyManager from './keyManager';
 import legendsFontUrl from './assets/fonts/legends.woff';
+import LAYOUTS from './config/layouts/layouts';
 
 let legendsFontRequested = false;
 
@@ -35,6 +36,14 @@ export async function createKeyboardPreview(element, options = {}) {
 		color: options.caseColor || '#1c1c1f'
 	});
 
+	function boardSize(id) {
+		const l = LAYOUTS[id];
+		if (!l) return { w: 23.5, d: 7.25 };
+		return { w: l.width + 1, d: l.height + 1 };
+	}
+	const initial = boardSize(options.layoutId || 100);
+	ThreeApp.setBoardSize(initial.w, initial.d);
+
 	//start render loop; tints are refreshed every frame before drawing
 	ThreeApp.onFrame = () => KEYS.applyTints();
 	ThreeApp.add(KEYS);
@@ -47,6 +56,8 @@ export async function createKeyboardPreview(element, options = {}) {
 		setLayout(id) {
 			KEYS.setLayout(id);
 			caseManager.setLayout(id);
+			const s = boardSize(id);
+			ThreeApp.setBoardSize(s.w, s.d);
 		},
 		onKeyClick(fn) {
 			ThreeApp.onKeyClick = fn;
