@@ -44,7 +44,8 @@
 		"nsis": {
 			"oneClick": false,
 			"allowToChangeInstallationDirectory": true,
-			"icon": "resources/icon.ico",
+			"installerIcon": "resources/icon.ico",
+			"uninstallerIcon": "resources/icon.ico",
 			"artifactName": "OpenPeripherals-${version}-${arch}-setup.${ext}"
 		},
 		"win": {
