@@ -17,7 +17,7 @@
 		"check:watch": "npm run check:watch --workspace @openperipherals/web",
 		"test": "turbo run test",
 		"app:dev": "npm run dev --workspace @openperipherals/desktop",
-		"app": "turbo run start",
+		"app": "turbo run start --force --filter=@openperipherals/desktop",
 		"dist": "turbo run dist"
 	},
 	"prettier": {

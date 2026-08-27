@@ -16,6 +16,16 @@
 			"cache": false,
 			"persistent": true
 		},
+		"@openperipherals/desktop#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["build/**"],
+			"cache": false
+		},
+		"@openperipherals/web#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["build/**", ".svelte-kit/**"],
+			"inputs": ["$TURBO_DEFAULT$", "../../package.json"]
+		},
 		"dist": {
 			"dependsOn": ["build"],
 			"outputs": ["dist/**"]
