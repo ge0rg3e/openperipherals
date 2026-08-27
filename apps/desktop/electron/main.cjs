@@ -115,7 +115,28 @@ function setupWebHid() {
 					(filter.vendorId === undefined || filter.vendorId === device.vendorId) &&
 					(filter.productId === undefined || filter.productId === device.productId)
 			);
-		const device = details.deviceList.find(matches) ?? details.deviceList[0];
+		// On Windows a Razer board exposes 3 interfaces: MI_00/MI_01 (HID
+		// keyboard/consumer, names "USB Input Device"/"HID-compliant*") and
+		// MI_02 (vendor lighting, name "Razer Huntsman Elite" for PID 0x0226).
+		// The old `find()` picked MI_00 (protected boot keyboard) -> feature
+		// reports were silently dropped while the web picker lets the user
+		// choose MI_02, so desktop appeared "connected but no updates".
+		const candidates = details.deviceList.filter(matches);
+		candidates.sort((a, b) => {
+			const score = (d) => {
+				const name = (d.productName || '').toLowerCase();
+				// Vendor interface has the real product name; generic names are the boot interfaces
+				if (/razer|logitech|redragon|g512|g810|k556|k582|huntsman|blackwidow|blade/.test(name) && !/usb input device|hid-compliant/.test(name)) return 2;
+				if (!/usb input device|hid-compliant/.test(name) && name) return 1;
+				return 0;
+			};
+			return score(b) - score(a);
+		});
+		const device = candidates[0] ?? details.deviceList.find(matches) ?? details.deviceList[0];
+		// Debug: helps diagnosing Windows MI routing without needing a Windows machine locally
+		try {
+			console.log('[hid] filters', JSON.stringify(filters), 'devices', details.deviceList.map((d) => ({ id: d.deviceId, vid: d.vendorId, pid: d.productId, name: d.productName })), 'picked', device ? { id: device.deviceId, name: device.productName } : null);
+		} catch {}
 		callback(device ? device.deviceId : '');
 	});
 
@@ -131,11 +152,19 @@ function autostartFilePath() {
 	return path.join(configHome, 'autostart', 'openperipherals.desktop');
 }
 
+function loginOpts() {
+	// Windows/macOS `getLoginItemSettings` must be queried with the same path/args
+	// that were used in `setLoginItemSettings`, otherwise it always returns false
+	// (the old code queried without args, so the toggle appeared stuck on Windows).
+	if (app.isPackaged) return { path: process.execPath, args: [START_HIDDEN_FLAG] };
+	return { path: process.execPath, args: [app.getAppPath(), START_HIDDEN_FLAG] };
+}
+
 /** OS truth: registry/login item (win+mac) or the autostart file (linux). */
 function isLaunchOnBootEnabled() {
 	if (process.platform === 'linux') return fs.existsSync(autostartFilePath());
 	try {
-		return app.getLoginItemSettings().openAtLogin;
+		return app.getLoginItemSettings(loginOpts()).openAtLogin;
 	} catch {
 		return false;
 	}
@@ -169,9 +198,8 @@ function applyLaunchOnBoot(enabled) {
 	}
 	app.setLoginItemSettings({
 		openAtLogin: enabled,
-		args: [START_HIDDEN_FLAG],
-		...(process.platform === 'darwin' ? { openAsHidden: enabled } : {}),
-		...(app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath(), START_HIDDEN_FLAG] })
+		...loginOpts(),
+		...(process.platform === 'darwin' ? { openAsHidden: enabled } : {})
 	});
 }
 
