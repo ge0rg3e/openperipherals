@@ -19,9 +19,7 @@
 	let { sessionId }: { sessionId: string } = $props();
 
 	// Resolve the live session so workspace state follows the store.
-	const kbSession = $derived.by(
-		() => $sessions.find((s) => s.id === sessionId && s.kind === 'keyboard') as KeyboardSession | null
-	);
+	const kbSession = $derived.by(() => $sessions.find((s) => s.id === sessionId && s.kind === 'keyboard') as KeyboardSession | null);
 	const controller = $derived(kbSession?.controller ?? null);
 	const info = $derived(kbSession?.info ?? null);
 
@@ -68,10 +66,7 @@
 
 	function saveProfile() {
 		try {
-			localStorage.setItem(
-				STORE_KEY,
-				JSON.stringify({ kind, color: color1, color2, speed, breathingMode, starlightMode, direction, custom: customColors })
-			);
+			localStorage.setItem(STORE_KEY, JSON.stringify({ kind, color: color1, color2, speed, breathingMode, starlightMode, direction, custom: customColors }));
 		} catch {
 			/* storage unavailable */
 		}
@@ -250,83 +245,112 @@
 			</section>
 
 			<!-- Controls -->
-			<Card size="sm" class="shrink-0 border-transparent">
-				<CardContent class="flex flex-col gap-3">
-					<div class="flex items-center gap-2">
-						<span class="flex size-6 items-center justify-center rounded-full bg-primary">
-							<Palette class="size-3.5 text-primary-foreground" />
-						</span>
-						<span class="text-sm font-semibold">Effect</span>
+			<Card size="sm" class="shrink-0 border-border/40">
+				<CardContent class="flex flex-col gap-4 p-4">
+					<!-- Effect selector -->
+					<div class="space-y-2">
+						<span class="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Effect</span>
+						<EffectPicker
+							options={effectList.map(([value, label]) => ({ value, label }))}
+							selected={kind}
+							onSelect={(value) => {
+								kind = value as EffectKind;
+								applyNonce++;
+							}}
+						/>
 					</div>
 
-					<EffectPicker
-						options={effectList.map(([value, label]) => ({ value, label }))}
-						selected={kind}
-						onSelect={(value) => {
-							kind = value as EffectKind;
-							applyNonce++;
-						}}
-					/>
-
 					{#if hasOptions}
-						<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+						<div class="flex flex-col gap-3 rounded-xl border bg-muted/20 p-3.5">
 							{#if showMode}
-								<div class="flex items-center gap-1.5">
-									<span class="text-xs text-muted-foreground">Mode</span>
-									{#each ['single', 'dual', 'random'] as m}
-										<Button variant={breathingMode === m ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs capitalize" onclick={() => (breathingMode = m as typeof breathingMode)}>
-											{m}
-										</Button>
-									{/each}
-								</div>
-							{/if}
-
-							{#if showColor1}
-								<div class="flex items-center gap-2">
-									<Label class="shrink-0 text-xs text-muted-foreground">Color</Label>
-									<ColorField bind:value={color1} label="Primary colour" class="h-8 w-36" />
-								</div>
-								{#if showColor2}
-									<div class="flex items-center gap-2">
-										<Label class="shrink-0 text-xs text-muted-foreground">Color 2</Label>
-										<ColorField bind:value={color2} label="Secondary colour" class="h-8 w-36" />
+								{@const activeMode = kind === 'starlight' ? starlightMode : breathingMode}
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="shrink-0 text-xs font-medium text-muted-foreground">Mode</span>
+									<div class="flex flex-wrap gap-1.5">
+										{#each ['single', 'dual', 'random'] as m}
+											<Button
+												variant={activeMode === m ? 'default' : 'outline'}
+												size="sm"
+												class="h-7 px-3 text-xs capitalize"
+												onclick={() => {
+													if (kind === 'starlight') starlightMode = m as typeof starlightMode;
+													else breathingMode = m as typeof breathingMode;
+												}}
+											>
+												{m}
+											</Button>
+										{/each}
 									</div>
-								{/if}
-							{/if}
-
-							{#if showSpeed}
-								<div class="flex min-w-48 flex-1 items-center gap-2">
-									<Label class="shrink-0 text-xs text-muted-foreground">Speed</Label>
-									<Slider type="single" value={speed} onValueChange={(v) => (speed = v as number)} min={1} max={4} step={1} />
-									<span class="w-12 shrink-0 text-right text-xs text-muted-foreground">{['', 'Fast', 'Medium', 'Slow', 'Slowest'][speed]}</span>
 								</div>
 							{/if}
 
-							{#if showDirection}
-								<div class="flex items-center gap-1.5">
-									<Button variant={direction === 'left' ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs" onclick={() => (direction = 'left')}>← Left</Button>
-									<Button variant={direction === 'right' ? 'default' : 'outline'} size="sm" class="h-7 px-2.5 text-xs" onclick={() => (direction = 'right')}>Right →</Button>
+							{#if showMode && (showColor1 || showSpeed || showDirection)}
+								<Separator class="opacity-50" />
+							{/if}
+
+							{#if showColor1 || showSpeed || showDirection}
+								<div class="grid gap-3 sm:grid-cols-2">
+									{#if showColor1}
+										<div class="flex flex-col gap-2">
+											<span class="text-xs font-medium text-muted-foreground">Color{showColor2 ? 's' : ''}</span>
+											<div class="flex flex-wrap gap-2">
+												<ColorField bind:value={color1} label="Primary colour" class="h-8 flex-1 min-w-28 max-w-40" />
+												{#if showColor2}
+													<ColorField bind:value={color2} label="Secondary colour" class="h-8 flex-1 min-w-28 max-w-40" />
+												{/if}
+											</div>
+										</div>
+									{/if}
+
+									{#if showSpeed}
+										<div class="flex flex-col gap-2">
+											<div class="flex items-center justify-between">
+												<span class="text-xs font-medium text-muted-foreground">Speed</span>
+												<span class="text-xs font-mono text-muted-foreground">{['', 'Fast', 'Medium', 'Slow', 'Slowest'][speed]}</span>
+											</div>
+											<Slider type="single" value={speed} onValueChange={(v) => (speed = v as number)} min={1} max={4} step={1} />
+										</div>
+									{/if}
+
+									{#if showDirection}
+										<div class="flex flex-col gap-2 sm:col-span-2 {showSpeed ? 'sm:col-span-1' : ''} {showColor1 ? '' : 'sm:col-span-2'}">
+											<span class="text-xs font-medium text-muted-foreground">Direction</span>
+											<div class="flex gap-1.5">
+												<Button variant={direction === 'left' ? 'default' : 'outline'} size="sm" class="h-8 flex-1 text-xs" onclick={() => (direction = 'left')}>← Left</Button>
+												<Button variant={direction === 'right' ? 'default' : 'outline'} size="sm" class="h-8 flex-1 text-xs" onclick={() => (direction = 'right')}
+													>Right →</Button
+												>
+											</div>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
 					{/if}
 
 					{#if kind === 'custom' && canCustom}
-						<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-							<Label class="shrink-0 text-xs text-muted-foreground">Paint</Label>
-							<ColorField bind:value={paintColor} label="Paint colour" class="h-8 w-36" />
-							<Button variant="outline" size="sm" class="h-7 px-2.5 text-xs" onclick={() => (customColors = {})}>Clear</Button>
-							<Button variant="outline" size="sm" class="h-7 px-2.5 text-xs" onclick={fillCustom}>Fill all</Button>
-							<span class="text-[10px] text-muted-foreground" title="Per-key lighting is host-rendered and resets when the device powers off.">
-								Click keys on the device to paint them
+						<div class="flex flex-col gap-3 rounded-xl border border-dashed bg-muted/20 p-3.5">
+							<div class="flex flex-wrap items-center gap-2.5">
+								<span class="text-xs font-medium text-muted-foreground">Paint</span>
+								<ColorField bind:value={paintColor} label="Paint colour" class="h-8 w-36" />
+								<div class="flex gap-1.5">
+									<Button variant="outline" size="sm" class="h-8 px-3 text-xs" onclick={() => (customColors = {})}>Clear</Button>
+									<Button variant="outline" size="sm" class="h-8 px-3 text-xs" onclick={fillCustom}>Fill all</Button>
+								</div>
+							</div>
+							<span class="text-[11px] leading-relaxed text-muted-foreground">
+								Click keys on the preview above to paint them — per-key lighting is host-rendered and resets when the device powers off.
 							</span>
 						</div>
 					{/if}
 
 					<Separator />
 
-					<div class="flex items-center gap-3">
-						<Label class="shrink-0 text-sm">Brightness</Label>
+					<div class="flex flex-col gap-2">
+						<div class="flex items-center justify-between">
+							<Label class="text-sm font-medium">Brightness</Label>
+							<span class="font-mono text-xs tabular-nums text-muted-foreground">{Math.round((brightness / 255) * 100)}%</span>
+						</div>
 						<Slider
 							type="single"
 							value={brightness}
@@ -338,31 +362,33 @@
 							max={255}
 							step={1}
 						/>
-						<span class="w-10 shrink-0 text-right font-mono text-xs tabular-nums">{Math.round((brightness / 255) * 100)}%</span>
 					</div>
 
 					{#if vendor === 'razer'}
-						<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
-							<span class="text-xs font-medium tracking-wider text-muted-foreground uppercase">Device</span>
-							<div class="flex items-center gap-2" title="Disables the Windows key">
-								<Label class="text-sm">Game mode</Label>
-								<Switch
-									checked={gameMode}
-									onCheckedChange={(c) => {
-										gameMode = c;
-										controller.setGameMode(c).catch(() => {});
-									}}
-								/>
-							</div>
-							<div class="flex items-center gap-2" title="M1-M5 backlight">
-								<Label class="text-sm">Macro key lights</Label>
-								<Switch
-									checked={macroLeds}
-									onCheckedChange={(c) => {
-										macroLeds = c;
-										controller.setMacroLeds(c).catch(() => {});
-									}}
-								/>
+						<div class="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/10 px-3 py-2.5">
+							<span class="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Device</span>
+							<div class="h-4 w-px shrink-0 bg-border hidden sm:block"></div>
+							<div class="flex flex-wrap items-center gap-4">
+								<div class="flex items-center gap-2" title="Disables the Windows key">
+									<Label class="text-sm">Game mode</Label>
+									<Switch
+										checked={gameMode}
+										onCheckedChange={(c) => {
+											gameMode = c;
+											controller.setGameMode(c).catch(() => {});
+										}}
+									/>
+								</div>
+								<div class="flex items-center gap-2" title="M1-M5 backlight">
+									<Label class="text-sm">Macro key lights</Label>
+									<Switch
+										checked={macroLeds}
+										onCheckedChange={(c) => {
+											macroLeds = c;
+											controller.setMacroLeds(c).catch(() => {});
+										}}
+									/>
+								</div>
 							</div>
 						</div>
 					{/if}

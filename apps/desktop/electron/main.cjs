@@ -4,12 +4,40 @@
 // to peripherals without modification.
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, Tray, Menu, protocol, net, session, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, protocol, net, session, ipcMain, shell, nativeImage } = require('electron');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const BUILD_DIR = path.join(__dirname, '..', 'build');
 const ICON_PATH = path.join(__dirname, '..', 'resources', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, '..', 'resources', 'tray.png');
+
+/**
+ * Load an image from disk and down-scale it if it exceeds maxSize.
+ * A 2048x2048 PNG decodes to ~16 MB - sending that raw to the X server
+ * hits the 16 MB XCB request limit and crashes the app with
+ * "Cannot send request of length 16777248" (see #icon-size-bug).
+ * Resizing to 512 (window icon) / 32 (tray) keeps the request well
+ * under the limit while still looking sharp on HiDPI.
+ */
+function loadIcon(iconPath, maxSize) {
+	try {
+		const img = nativeImage.createFromPath(iconPath);
+		if (img.isEmpty()) return iconPath;
+		const { width, height } = img.getSize();
+		if (maxSize && (width > maxSize || height > maxSize)) {
+			// preserve aspect ratio - for tray.png which is 650x350
+			const scale = Math.min(maxSize / width, maxSize / height);
+			return img.resize({
+				width: Math.round(width * scale),
+				height: Math.round(height * scale),
+				quality: 'best'
+			});
+		}
+		return img;
+	} catch {
+		return iconPath;
+	}
+}
 const APP_SCHEME = 'app';
 const APP_ORIGIN = `${APP_SCHEME}://openperipherals`;
 const RELEASES_API = 'https://api.github.com/repos/ge0rg3e/openperipherals/releases/latest';
@@ -241,7 +269,7 @@ function toggleMainWindow() {
 
 function createTray() {
 	try {
-		tray = new Tray(TRAY_ICON_PATH);
+		tray = new Tray(loadIcon(TRAY_ICON_PATH, 32));
 	} catch {
 		return; // platform without tray support
 	}
@@ -292,7 +320,7 @@ function createWindow() {
 		frame: false,
 		autoHideMenuBar: true,
 		title: 'OpenPeripherals (Beta)',
-		icon: ICON_PATH,
+		icon: loadIcon(ICON_PATH, 512),
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
