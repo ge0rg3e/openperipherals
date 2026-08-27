@@ -24,11 +24,13 @@
 		"@openperipherals/web#build": {
 			"dependsOn": ["^build"],
 			"outputs": ["build/**", ".svelte-kit/**"],
-			"inputs": ["$TURBO_DEFAULT$", "../../package.json"]
+			"inputs": ["$TURBO_DEFAULT$", "../../package.json"],
+			"cache": false
 		},
 		"dist": {
 			"dependsOn": ["build"],
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**"],
+			"cache": false
 		},
 		"dev": {
 			"cache": false,

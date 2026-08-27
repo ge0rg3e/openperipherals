@@ -111,7 +111,9 @@
 		<!-- Workspace for the selected device -->
 		{#if active}
 			{#if active.kind === 'keyboard'}
-				<KeyboardWorkspace sessionId={active.id} />
+				<div class="min-h-0 flex-1 overflow-y-auto">
+					<KeyboardWorkspace sessionId={active.id} />
+				</div>
 			{:else}
 				<div class="min-h-0 flex-1 overflow-y-auto">
 					<MousePanel sessionId={active.id} />

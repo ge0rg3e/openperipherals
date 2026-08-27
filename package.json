@@ -17,8 +17,8 @@
 		"check:watch": "npm run check:watch --workspace @openperipherals/web",
 		"test": "turbo run test",
 		"app:dev": "npm run dev --workspace @openperipherals/desktop",
-		"app": "turbo run start --force --filter=@openperipherals/desktop",
-		"dist": "turbo run dist"
+		"app": "turbo run build --filter=@openperipherals/web --force && turbo run start --force --filter=@openperipherals/desktop",
+		"dist": "turbo run build --force && turbo run dist --force"
 	},
 	"prettier": {
 		"$schema": "http://json.schemastore.org/prettierrc",

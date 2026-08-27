@@ -203,7 +203,7 @@
 </script>
 
 {#if kbSession && controller}
-	<div class="flex min-h-0 flex-1 flex-col gap-3">
+	<div class="flex flex-col gap-3">
 		<!-- Device identity -->
 		<div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
 			<div class="flex flex-wrap items-center gap-2">
@@ -229,10 +229,10 @@
 			{/if}
 		</div>
 
-		<div class="flex min-h-0 flex-1 flex-col gap-4">
+		<div class="flex flex-col gap-4">
 			<!-- Keyboard stage -->
-			<section class="flex min-h-0 flex-1 flex-col">
-				<div class="relative min-h-[320px] flex-1 overflow-hidden rounded-2xl bg-transparent p-4 sm:p-6">
+			<section class="shrink-0">
+				<div class="relative h-[clamp(200px,38vh,420px)] min-h-[200px] overflow-hidden rounded-2xl bg-transparent p-4 sm:p-6">
 					<KeyboardPreview
 						preview={kind}
 						layout={kbd?.layout ?? lkb?.layout ?? rkb?.layout ?? 'full'}
@@ -245,7 +245,7 @@
 			</section>
 
 			<!-- Controls -->
-			<Card size="sm" class="shrink-0 border-border/40">
+			<Card size="sm" class="relative z-10 shrink-0 border-border/40 bg-card">
 				<CardContent class="flex flex-col gap-4 p-4">
 					<!-- Effect selector -->
 					<div class="space-y-2">
