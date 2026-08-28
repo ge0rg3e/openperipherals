@@ -20,7 +20,7 @@
     <DevLog />
   {/if}
   <Toaster />
-  <div class="min-h-0 flex-1 overflow-hidden">
+  <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
     {@render children()}
   </div>
 </div>
