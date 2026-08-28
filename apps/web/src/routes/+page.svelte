@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+	import { Button } from '$lib/components/ui/button';
 	import { Download } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import pkg from '@root/package.json' with { type: 'json' };
@@ -203,25 +204,22 @@ sudo udevadm trigger`;
 	<!-- Header - floating pill, geometrically symmetric -->
 	<header class="sticky top-3.5 z-20 mx-auto w-[calc(100%-24px)] max-w-[1160px]">
 		<div
-			class="flex items-center justify-between gap-2 rounded-[14px] border border-white/[0.07] bg-[#0f0f10]/75 px-1.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)_inset] backdrop-blur-2xl sm:gap-4 sm:rounded-2xl sm:px-2.5"
+			class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[14px] border border-white/[0.07] bg-[#0f0f10]/75 px-1.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)_inset] backdrop-blur-2xl sm:gap-4 sm:rounded-2xl sm:px-2.5"
 		>
-			<a href="/" class="flex min-w-0 shrink-0 items-center gap-2 pl-1.5 sm:pl-2 pr-1">
-				<span class="text-[13px] font-[600] tracking-tight sm:text-[13.5px]">OpenPeripherals</span>
-				<span class="hidden rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/60 sm:inline-flex">beta</span>
-			</a>
+			<div class="flex min-w-0 items-center justify-start">
+				<a href="/" class="flex min-w-0 shrink-0 items-center gap-2 pl-1.5 sm:pl-2 pr-1">
+					<span class="text-sm font-semibold tracking-tight">OpenPeripherals</span>
+					<span class="hidden rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs font-medium leading-none text-white/60 sm:inline-flex">beta</span>
+				</a>
+			</div>
 
-			<nav class="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
-				<a href="#supported" class="rounded-full px-3 py-1.5 text-[13px] font-[450] text-white/45 transition hover:bg-white/[0.06] hover:text-white/90">Devices</a>
-				<a href="#troubleshooting" class="rounded-full px-3 py-1.5 text-[13px] font-[450] text-white/45 transition hover:bg-white/[0.06] hover:text-white/90">Troubleshooting</a>
-				<a
-					href="https://github.com/ge0rg3e/openperipherals"
-					target="_blank"
-					rel="noopener"
-					class="rounded-full px-3 py-1.5 text-[13px] font-[450] text-white/45 transition hover:bg-white/[0.06] hover:text-white/90">GitHub</a
-				>
+			<nav class="hidden items-center justify-center gap-0.5 lg:flex">
+				<Button href="#supported" variant="ghost" size="sm">Devices</Button>
+				<Button href="#troubleshooting" variant="ghost" size="sm">Troubleshooting</Button>
+				<Button href="https://github.com/ge0rg3e/openperipherals" target="_blank" rel="noopener" variant="ghost" size="sm">GitHub</Button>
 			</nav>
 
-			<div class="flex shrink-0 items-center justify-end gap-1.5">
+			<div class="flex items-center justify-end gap-1.5">
 				<div class="hidden lg:flex">
 					<Select type="single" bind:value={downloadOs} onValueChange={downloadDesktop}>
 						<SelectTrigger
@@ -229,7 +227,7 @@ sudo udevadm trigger`;
 							class="h-8 gap-1.5 rounded-full border-white/10 bg-white/[0.06] px-3 text-[13px] font-medium text-white/80 hover:bg-white/10 hover:text-white data-[placeholder]:text-white/60 [&_svg]:opacity-60"
 						>
 							<Download class="h-3.5 w-3.5" />
-							<span>Download</span>
+							<span>Desktop App</span>
 						</SelectTrigger>
 						<SelectContent class="rounded-xl border-white/10 bg-[#121212]">
 							{#each Object.entries(DESKTOP_DOWNLOADS) as [os, d] (os)}
@@ -238,46 +236,26 @@ sudo udevadm trigger`;
 						</SelectContent>
 					</Select>
 				</div>
-				<button
-					onclick={openWebApp}
-					class="group inline-flex h-8 items-center gap-1 rounded-full bg-white px-2.5 py-0 text-[13px] font-[550] tracking-tight text-black shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-white/90 sm:px-3"
-				>
-					<span class="pl-0.5">Open<span class="hidden sm:inline"> Web App</span></span>
-					<span class="flex h-5 w-5 items-center justify-center rounded-full bg-black/[0.07] text-black/40 transition group-hover:bg-black/10">
+				<Button onclick={openWebApp}>
+					<span>Web App</span>
+					<span class="flex h-5 w-5 items-center justify-center rounded-full bg-black/[0.07] text-black/40">
 						<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
 							><path d="M4 3l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg
 						>
 					</span>
-				</button>
-				<button
-					class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
-					aria-label="Toggle menu"
-					aria-expanded={mobileMenuOpen}
-					onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
-				>
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-				</button>
+				</Button>
+				<div class="lg:hidden">
+					<Button variant="outline" size="icon" aria-label="Toggle menu" aria-expanded={mobileMenuOpen} onclick={() => (mobileMenuOpen = !mobileMenuOpen)}>
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+					</Button>
+				</div>
 			</div>
 		</div>
 		{#if mobileMenuOpen}
 			<div class="mt-2 rounded-2xl border border-white/[0.07] bg-[#0f0f10]/95 p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl lg:hidden">
-				<a
-					href="#supported"
-					onclick={() => (mobileMenuOpen = false)}
-					class="flex items-center rounded-xl px-3 py-2.5 text-[13px] font-medium text-white/70 hover:bg-white/[0.06] hover:text-white">Devices</a
-				>
-				<a
-					href="#troubleshooting"
-					onclick={() => (mobileMenuOpen = false)}
-					class="flex items-center rounded-xl px-3 py-2.5 text-[13px] font-medium text-white/70 hover:bg-white/[0.06] hover:text-white">Troubleshooting</a
-				>
-				<a
-					href="https://github.com/ge0rg3e/openperipherals"
-					target="_blank"
-					rel="noopener"
-					onclick={() => (mobileMenuOpen = false)}
-					class="flex items-center rounded-xl px-3 py-2.5 text-[13px] font-medium text-white/70 hover:bg-white/[0.06] hover:text-white">GitHub</a
-				>
+				<Button href="#supported" variant="ghost" onclick={() => (mobileMenuOpen = false)}>Devices</Button>
+				<Button href="#troubleshooting" variant="ghost" onclick={() => (mobileMenuOpen = false)}>Troubleshooting</Button>
+				<Button href="https://github.com/ge0rg3e/openperipherals" target="_blank" rel="noopener" variant="ghost" onclick={() => (mobileMenuOpen = false)}>GitHub</Button>
 				<div class="my-1 h-px bg-white/[0.06]"></div>
 				<div class="px-1 pb-1 pt-1">
 					<Select
@@ -305,49 +283,31 @@ sudo udevadm trigger`;
 	<main class="relative flex-1">
 		<!-- Hero -->
 		<section class="relative mx-auto flex w-full max-w-[720px] flex-col items-center px-4 pb-12 pt-14 text-center sm:pt-[80px]">
-			<h1 class="mt-2 max-w-[640px] text-balance text-[34px] font-[680] leading-[0.92] tracking-[-0.045em] sm:text-[50px] md:text-[54px]">
+			<h1 class="mt-2 max-w-[640px] text-balance text-[34px] font-bold leading-[0.95] tracking-tighter sm:text-[52px] md:text-[56px]">
 				Control your RGB
-				<span class="bg-gradient-to-b from-white to-white/65 bg-clip-text text-transparent">without the bloat.</span>
+				<span class="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">without the bloat.</span>
 			</h1>
 
-			<p class="mx-auto mt-5 max-w-[560px] text-pretty text-[14px] leading-[1.6] text-white/[0.42] sm:text-[15px]">
+			<p class="mx-auto mt-5 max-w-[560px] text-balance text-center text-[15px] leading-relaxed text-white/60 sm:text-[16px]">
 				A free, open-source WebHID app that controls your devices without any proprietary software. Connect, change settings, close the tab. Done.
 			</p>
 
 			<div class="mt-8 flex flex-wrap items-center justify-center gap-2.5">
-				<button
-					onclick={openWebApp}
-					class="group inline-flex h-[37px] items-center gap-0 overflow-hidden rounded-full bg-white p-1 pr-1 text-sm font-medium text-black shadow-[0_4px_24px_rgba(255,255,255,0.12),0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-white/90 active:scale-[0.98]"
-				>
-					<span class="px-3.5 text-[13.5px] font-[600] tracking-tight">Open Web App</span>
-					<span class="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.07] text-black/45 transition group-hover:bg-black/10">
+				<Button onclick={openWebApp} size="lg">
+					<span>Web App</span>
+					<span class="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.07] text-black/45">
 						<svg width="12" height="12" viewBox="0 0 12 12" fill="none"
 							><path d="M4 3l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg
 						>
 					</span>
-				</button>
+				</Button>
 
-				<a
-					href="#supported"
-					class="inline-flex h-[37px] items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.05] px-4.5 text-[13.5px] font-[500] text-white/85 shadow-[0_1px_12px_rgba(0,0,0,0.4)] backdrop-blur transition hover:bg-white/[0.08] hover:text-white"
-				>
-					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="opacity-50"
-						><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.5" /><path
-							d="M10 8.5l4 3.5-4 3.5"
-							stroke="currentColor"
-							stroke-width="1.4"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/></svg
-					>
-					Browse devices
-				</a>
-			</div>
-
-			<div class="mt-4 flex items-center justify-center">
 				<Select type="single" bind:value={downloadOs} onValueChange={downloadDesktop}>
-					<SelectTrigger size="default" class="h-7 rounded-full border-white/[0.07] bg-white/[0.02] px-3.5 text-xs font-[450] text-white/40 hover:bg-white/[0.06] hover:text-white/70">
-						<span class="flex items-center gap-1.5"><Download class="h-3 w-3 opacity-60" />Download desktop app</span>
+					<SelectTrigger
+						size="default"
+						class="h-[37px] rounded-full border border-white/10 bg-white/[0.06] px-5 text-[13.5px] font-[500] text-white/85 shadow-[0_1px_12px_rgba(0,0,0,0.4)] backdrop-blur hover:border-white/15 hover:bg-white/[0.09] hover:text-white data-[placeholder]:text-white/85 [&_svg]:opacity-80"
+					>
+						<span class="flex items-center gap-1.5"><Download class="h-3.5 w-3.5" />Desktop App</span>
 					</SelectTrigger>
 					<SelectContent class="rounded-xl border-white/10 bg-[#121212]">
 						{#each Object.entries(DESKTOP_DOWNLOADS) as [os, d] (os)}
@@ -356,25 +316,31 @@ sudo udevadm trigger`;
 					</SelectContent>
 				</Select>
 			</div>
-			<p class="mt-2.5 text-[11px] tracking-wide text-white/25">
-				Desktop builds served from <a href={RELEASES_URL} target="_blank" rel="noopener" class="underline decoration-white/10 underline-offset-2 hover:text-white/40">GitHub Releases</a>
-				<span class="text-white/20"> · </span><span class="text-white/30">v{APP_VERSION}</span>
+
+			<div class="mt-4">
+				<Button href="#supported" variant="ghost" size="sm"
+					>Browse devices <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+						><path d="M4 3l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg
+					></Button
+				>
+			</div>
+			<p class="mt-3 text-xs tracking-wide text-white/40">
+				Desktop builds served from <a href={RELEASES_URL} target="_blank" rel="noopener" class="underline decoration-white/10 underline-offset-2 hover:text-white/60">GitHub Releases</a>
+				<span class="text-white/30"> · </span><span class="text-white/50">v{APP_VERSION}</span>
 			</p>
 
 			{#if showArchInstructions}
 				<div class="mt-6 w-full max-w-xl rounded-2xl border border-white/[0.07] bg-[#0A0A0A] p-4 text-left">
 					<div class="flex items-center justify-between">
 						<h3 class="text-sm font-semibold tracking-tight">Arch Linux quick install</h3>
-						<button onclick={() => (showArchInstructions = false)} class="rounded-full p-1 text-white/30 hover:bg-white/5 hover:text-white">✕</button>
+						<Button variant="ghost" size="icon-xs" onclick={() => (showArchInstructions = false)}>✕</Button>
 					</div>
 					<div class="relative mt-3">
-						<button
-							type="button"
-							class="absolute right-1.5 top-1.5 z-10 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-black transition hover:bg-white/90"
-							onclick={copyArchCommand}
-						>
-							{archCopied ? 'Copied!' : 'Copy'}
-						</button>
+						<div class="absolute right-1.5 top-1.5 z-10">
+							<Button size="xs" onclick={copyArchCommand}>
+								{archCopied ? 'Copied!' : 'Copy'}
+							</Button>
+						</div>
 						<pre class="overflow-x-auto rounded-xl border border-white/[0.06] bg-black px-4 py-3 pr-16 font-mono text-xs leading-relaxed text-white/80">{ARCH_INSTALL_CMD}</pre>
 					</div>
 				</div>
@@ -383,9 +349,9 @@ sudo udevadm trigger`;
 
 		<!-- Features -->
 		<section class="mx-auto w-full max-w-[1160px] px-4 py-12 sm:px-6 sm:py-16">
-			<h2 class="text-[22px] font-[650] leading-[1.1] tracking-[-0.025em] sm:text-[28px]">
+			<h2 class="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
 				<span class="text-white">Remarkably simple.</span><br />
-				<span class="text-white/35">Big on control.</span>
+				<span class="text-white/40">Big on control.</span>
 			</h2>
 
 			<div class="mt-7 grid gap-3.5 sm:grid-cols-3">
@@ -456,13 +422,13 @@ sudo udevadm trigger`;
 									</div>
 								</div>
 							{/if}
-							<span class="absolute bottom-2.5 left-2.5 rounded-full border border-white/[0.08] bg-black/60 px-2.5 py-1 text-[10.5px] font-[500] leading-none text-white/55 backdrop-blur"
+							<span class="absolute bottom-2.5 left-2.5 rounded-full border border-white/[0.08] bg-black/60 px-2.5 py-1 text-xs font-medium leading-none text-white/60 backdrop-blur"
 								>{f.tag}</span
 							>
 						</div>
 						<div class="relative flex flex-1 flex-col bg-[#0A0A0A] p-4 sm:p-[18px]">
-							<h3 class="text-[13px] font-[600] tracking-tight text-white">{f.title}</h3>
-							<p class="mt-1.5 text-[12.5px] leading-[1.6] text-white/40">{f.description}</p>
+							<h3 class="text-sm font-semibold tracking-tight text-white">{f.title}</h3>
+							<p class="mt-1.5 text-sm leading-relaxed text-white/60">{f.description}</p>
 						</div>
 					</div>
 				{/each}
@@ -474,9 +440,9 @@ sudo udevadm trigger`;
 			<div class="mx-auto w-full max-w-[1160px] px-4 py-12 sm:px-6 sm:py-16">
 				<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 					<div>
-						<h2 class="text-[22px] font-[620] tracking-[-0.02em] sm:text-[26px]">Supported devices</h2>
-						<p class="mt-1.5 text-sm text-white/40">
-							{deviceCount} <span class="text-white/60">{activeCat.label}</span> devices
+						<h2 class="text-2xl font-semibold tracking-tight sm:text-[26px]">Supported devices</h2>
+						<p class="mt-1.5 text-sm leading-relaxed text-white/60">
+							{deviceCount} <span class="text-white/80">{activeCat.label}</span> devices
 						</p>
 					</div>
 					<Tabs bind:value={activeCategory} class="w-auto">
@@ -498,8 +464,8 @@ sudo udevadm trigger`;
 							{#each cat.groups as group}
 								<div class="mt-8 first:mt-6">
 									<div class="flex items-center gap-2">
-										<h3 class="text-[11px] font-semibold tracking-[0.08em] text-white/30 uppercase">{group.label}</h3>
-										<span class="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-white/40">{group.items.length}</span>
+										<h3 class="text-xs font-semibold tracking-widest text-white/40 uppercase">{group.label}</h3>
+										<span class="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-white/50">{group.items.length}</span>
 										<span class="h-px flex-1 bg-white/[0.06]"></span>
 									</div>
 									<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -521,7 +487,7 @@ sudo udevadm trigger`;
 													>
 												</div>
 												<div class="flex shrink-0 items-center justify-between border-t border-white/[0.06] bg-[#0F0F10] px-3.5 py-2.5">
-													<span class="truncate text-[13px] font-[550] tracking-tight">{d.name}</span>
+													<span class="truncate text-sm font-medium tracking-tight">{d.name}</span>
 													<span class="ml-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00ff88] shadow-[0_0_6px_rgba(0,255,136,0.5)]"></span>
 												</div>
 											</div>
@@ -538,44 +504,39 @@ sudo udevadm trigger`;
 		<!-- Troubleshooting - Raycast muted dark card -->
 		<section id="troubleshooting" class="border-t border-white/[0.06] bg-black">
 			<div class="mx-auto w-full max-w-[820px] px-4 py-12 sm:px-6 sm:py-16">
-				<h2 class="text-[22px] font-[620] tracking-[-0.02em]">Troubleshooting</h2>
-				<p class="mt-1 text-sm text-white/35">Why WebHID may not control your lighting on Linux.</p>
+				<h2 class="text-2xl font-semibold tracking-tight">Troubleshooting</h2>
+				<p class="mt-1.5 text-sm leading-relaxed text-white/60">Why WebHID may not control your lighting on Linux.</p>
 
 				<div class="mt-8 overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0A0A]">
 					<div class="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 					<div class="p-5 sm:p-6">
-						<div class="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-200/80">
+						<div class="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200/80">
 							<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
 							Linux needs a one-time permission fix
 						</div>
-						<p class="mt-3 max-w-2xl text-sm leading-relaxed text-white/50">
+						<p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-white/60">
 							Browsers talk to your device through WebHID, which on Linux is guarded by the OS. By default your device is only readable, not writable. The app connects but lighting
 							controls do nothing until a small udev rule grants access.
 						</p>
-						<p class="mt-3 text-sm leading-relaxed text-white/50">
-							If “Connect Device” looks like it worked but nothing changes, run these three lines, then <span class="text-white/70">unplug and replug your device</span> (or reboot):
+						<p class="mt-3 text-[15px] leading-relaxed text-white/60">
+							If “Connect Device” looks like it worked but nothing changes, run these three lines, then <span class="text-white/80">unplug and replug your device</span> (or reboot):
 						</p>
 
 						<div class="relative mt-4 overflow-hidden rounded-xl border border-white/[0.07] bg-black">
-							<button
-								type="button"
-								class="absolute right-1.5 top-1.5 z-10 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-black transition hover:bg-white/90"
-								onclick={copyLinuxCommands}
-							>
-								{copied ? 'Copied!' : 'Copy'}
-							</button>
-							<pre class="overflow-x-auto px-4 py-3.5 pr-20 font-mono text-[11.5px] leading-relaxed text-white/75">{linuxSetupCommands}</pre>
+							<div class="absolute right-1.5 top-1.5 z-10">
+								<Button size="xs" onclick={copyLinuxCommands}>
+									{copied ? 'Copied!' : 'Copy'}
+								</Button>
+							</div>
+							<pre class="overflow-x-auto px-4 py-3.5 pr-20 font-mono text-xs leading-relaxed text-white/80">{linuxSetupCommands}</pre>
 						</div>
 
-						<a
-							href="https://developer.chrome.com/docs/capabilities/hid#:~:text=On%20most%20Linux%20systems"
-							target="_blank"
-							rel="noopener noreferrer"
-							class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/[0.08] hover:text-white"
-						>
-							Read on Chrome Docs
-							<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 3l4 3-4 3" stroke="currentColor" stroke-width="1.3" /></svg>
-						</a>
+						<div class="mt-4">
+							<Button href="https://developer.chrome.com/docs/capabilities/hid#:~:text=On%20most%20Linux%20systems" target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
+								Read on Chrome Docs
+								<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 3l4 3-4 3" stroke="currentColor" stroke-width="1.3" /></svg>
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -584,18 +545,11 @@ sudo udevadm trigger`;
 
 	<footer class="border-t border-white/[0.06] bg-black">
 		<div class="mx-auto flex w-full max-w-[1160px] flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-			<span class="text-xs tracking-tight text-white/30">OpenPeripherals {new Date().getFullYear()} · Free & open source</span>
+			<span class="text-sm tracking-tight text-white/50">OpenPeripherals {new Date().getFullYear()} · Free & open source</span>
 			<div class="flex items-center gap-1">
-				<a
-					href="https://github.com/ge0rg3e/openperipherals"
-					target="_blank"
-					rel="noopener"
-					class="rounded-full px-3 py-1.5 text-xs font-medium text-white/40 hover:bg-white/5 hover:text-white transition">GitHub</a
-				>
+				<Button href="https://github.com/ge0rg3e/openperipherals" target="_blank" rel="noopener" variant="ghost" size="sm">GitHub</Button>
 				<span class="text-white/10">·</span>
-				<a href="https://x.com/ge0rg3e_dev" target="_blank" rel="noopener" class="rounded-full px-3 py-1.5 text-xs font-medium text-white/40 hover:bg-white/5 hover:text-white transition"
-					>Follow @ge0rg3e_dev</a
-				>
+				<Button href="https://x.com/ge0rg3e_dev" target="_blank" rel="noopener" variant="ghost" size="sm">Follow @ge0rg3e_dev</Button>
 			</div>
 		</div>
 	</footer>
