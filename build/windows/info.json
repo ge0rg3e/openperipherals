@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.1.0"
+	},
+	"info": {
+		"0409": {
+			"ProductVersion": "0.1.0",
+			"CompanyName": "ge0rg3e",
+			"FileDescription": "OpenPeripherals",
+			"LegalCopyright": "© 2026 ge0rg3e",
+			"ProductName": "OpenPeripherals",
+			"Comments": "Lightweight RGB, DPI, key and fan control"
+		}
+	}
+}
