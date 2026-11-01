@@ -4,21 +4,26 @@
 import * as FanService from "./fanservice.js";
 import * as PeripheralService from "./peripheralservice.js";
 import * as SystemService from "./systemservice.js";
+import * as WallpaperService from "./wallpaperservice.js";
 export {
     FanService,
     PeripheralService,
-    SystemService
+    SystemService,
+    WallpaperService
 };
 
 export type {
     DPIStage,
     Fan,
     FanConfig,
+    FanPreset,
+    FanPresetEntry,
     FanStatus,
     KeyboardLighting,
     KeyboardState,
     MouseState,
     Status,
     SyncLighting,
-    TempSensor
+    TempSensor,
+    WallpaperStatus
 } from "./models.js";

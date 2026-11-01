@@ -15,10 +15,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
- * Autostart reports whether the app starts with Windows.
+ * Autostart reports whether the app starts with Windows, either through the
+ * elevated task or through the legacy Run-key entry.
  */
 export function Autostart(): $CancellablePromise<boolean> {
     return $Call.ByID(20711902);
+}
+
+/**
+ * AutostartElevated reports whether the Windows startup entry runs the app
+ * with administrator rights.
+ */
+export function AutostartElevated(): $CancellablePromise<boolean> {
+    return $Call.ByID(149795532);
 }
 
 /**
@@ -44,8 +53,10 @@ export function Refresh(): $CancellablePromise<$models.Status> {
 
 /**
  * SetAutostart starts the app hidden in the tray at login, or stops doing so.
- * When elevated it registers a highest-privilege logon task, so fan control
- * works at startup without a UAC prompt; otherwise it uses the Run key.
+ * Startup uses a highest-privilege scheduled task, so fan control works at
+ * login without a UAC prompt. Enabling it from an unelevated copy restarts the
+ * app elevated once, because Windows only lets administrators create such a
+ * task.
  */
 export function SetAutostart(enabled: boolean): $CancellablePromise<void> {
     return $Call.ByID(843922236, enabled);

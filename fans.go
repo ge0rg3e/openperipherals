@@ -55,6 +55,20 @@ type TempSensor struct {
 	Temp int    `json:"temp"` // -1 when unavailable
 }
 
+// FanPreset is a named set of fan configs that can be applied at once.
+type FanPreset struct {
+	ID      string           `json:"id"`
+	Name    string           `json:"name"`
+	Builtin bool             `json:"builtin"`
+	Configs []FanPresetEntry `json:"configs"`
+}
+
+// FanPresetEntry is the config a preset applies to one fan.
+type FanPresetEntry struct {
+	FanID  string    `json:"fanId"`
+	Config FanConfig `json:"config"`
+}
+
 // FanStatus is the fan page snapshot.
 type FanStatus struct {
 	Available bool         `json:"available"`
@@ -62,6 +76,7 @@ type FanStatus struct {
 	Elevated  bool         `json:"elevated"`
 	Fans      []Fan        `json:"fans"`
 	Sensors   []TempSensor `json:"sensors"`
+	Presets   []FanPreset  `json:"presets"`
 }
 
 type fanDev struct {
@@ -73,24 +88,31 @@ type fanDev struct {
 
 // FanService detects fans and runs the control loop.
 type FanService struct {
-	mu      sync.Mutex
-	chip    *superio.Chip
-	gpus    []*nvgpu.GPU
-	fans    []*fanDev
-	sensors []TempSensor
-	cfg     map[string]FanConfig
-	path    string
-	notice  string
-	stop    chan struct{}
-	done    chan struct{}
+	mu         sync.Mutex
+	chip       *superio.Chip
+	gpus       []*nvgpu.GPU
+	fans       []*fanDev
+	sensors    []TempSensor
+	cfg        map[string]FanConfig
+	presets    []FanPreset // custom presets, built-ins are generated
+	path       string
+	presetPath string
+	notice     string
+	stop       chan struct{}
+	done       chan struct{}
 }
 
 func (f *FanService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	f.cfg = map[string]FanConfig{}
 	if dir, err := os.UserConfigDir(); err == nil {
-		f.path = filepath.Join(dir, "openperipherals", "fans.json")
+		dir = filepath.Join(dir, "openperipherals")
+		f.path = filepath.Join(dir, "fans.json")
 		if b, err := os.ReadFile(f.path); err == nil {
 			json.Unmarshal(b, &f.cfg)
+		}
+		f.presetPath = filepath.Join(dir, "fan-presets.json")
+		if b, err := os.ReadFile(f.presetPath); err == nil {
+			json.Unmarshal(b, &f.presets)
 		}
 	}
 	f.detect()
@@ -187,10 +209,15 @@ func (f *FanService) detect() {
 			c.Sensor = f.defaultSensor(d.ID)
 		}
 		if len(c.Points) < 2 {
-			c.Points = [][2]int{{30, 30}, {50, 40}, {70, 70}, {85, 100}}
+			c.Points = defaultFanPoints()
 		}
 		d.Config = c
 	}
+}
+
+// defaultFanPoints is the curve a fan starts with.
+func defaultFanPoints() [][2]int {
+	return [][2]int{{30, 30}, {50, 40}, {70, 70}, {85, 100}}
 }
 
 // defaultSensor picks the CPU sensor for motherboard fans and the GPU's own
@@ -348,54 +375,236 @@ func (f *FanService) statusLocked() FanStatus {
 		st.Fans = append(st.Fans, d.Fan)
 	}
 	st.Sensors = append(st.Sensors, f.sensors...)
+	st.Presets = f.presetsLocked()
 	return st
 }
 
 // SetFanConfig changes how a fan is driven; the loop applies it next tick.
 func (f *FanService) SetFanConfig(id string, c FanConfig) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, err := f.normalizeConfig(id, c)
+	if err != nil {
+		return err
+	}
+	if err := f.setConfigLocked(id, c); err != nil {
+		return err
+	}
+	f.save()
+	return nil
+}
+
+// ApplyPreset switches every fan in a preset at once.
+func (f *FanService) ApplyPreset(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	p, ok := f.findPresetLocked(id)
+	if !ok {
+		return fmt.Errorf("unknown preset %q", id)
+	}
+	for _, e := range p.Configs {
+		c, err := f.normalizeConfig(e.FanID, e.Config)
+		if err != nil {
+			return fmt.Errorf("preset %q: %w", p.Name, err)
+		}
+		// A fan in the preset may be gone (unplugged GPU, different board).
+		f.setConfigLocked(e.FanID, c)
+	}
+	f.save()
+	return nil
+}
+
+// SavePreset stores the current config of every fan under a name and returns
+// the new preset's id.
+func (f *FanService) SavePreset(name string) (string, error) {
+	name, err := presetName(name)
+	if err != nil {
+		return "", err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.fans) == 0 {
+		return "", errors.New("there are no fans to save")
+	}
+	for _, p := range f.builtinPresetsLocked() {
+		if strings.EqualFold(p.Name, name) {
+			return "", fmt.Errorf("%q is a built-in preset name", name)
+		}
+	}
+	for _, p := range f.presets {
+		if strings.EqualFold(p.Name, name) {
+			return "", fmt.Errorf("a preset named %q already exists", name)
+		}
+	}
+	id := fmt.Sprintf("custom:%d", time.Now().UnixNano())
+	f.presets = append(f.presets, FanPreset{
+		ID:      id,
+		Name:    name,
+		Configs: f.currentConfigsLocked(),
+	})
+	f.savePresets()
+	return id, nil
+}
+
+// UpdatePreset replaces a custom preset with the current config of every fan.
+func (f *FanService) UpdatePreset(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.fans) == 0 {
+		return errors.New("there are no fans to save")
+	}
+	for i := range f.presets {
+		if f.presets[i].ID == id {
+			f.presets[i].Configs = f.currentConfigsLocked()
+			f.savePresets()
+			return nil
+		}
+	}
+	return errors.New("preset not found")
+}
+
+// DeletePreset removes a custom preset.
+func (f *FanService) DeletePreset(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.presets {
+		if f.presets[i].ID == id {
+			f.presets = append(f.presets[:i], f.presets[i+1:]...)
+			f.savePresets()
+			return nil
+		}
+	}
+	return errors.New("preset not found")
+}
+
+func presetName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New("a preset needs a name")
+	}
+	if len([]rune(name)) > 32 {
+		return "", errors.New("a preset name can be at most 32 characters")
+	}
+	return name, nil
+}
+
+// normalizeConfig validates a config and fills in defaults.
+func (f *FanService) normalizeConfig(id string, c FanConfig) (FanConfig, error) {
 	switch c.Mode {
 	case "auto", "fixed", "curve":
 	default:
-		return fmt.Errorf("unknown fan mode %q", c.Mode)
+		return c, fmt.Errorf("unknown fan mode %q", c.Mode)
 	}
+	c.Points = append([][2]int(nil), c.Points...)
 	if c.Mode == "curve" && len(c.Points) < 2 {
-		return errors.New("a curve needs at least two points")
+		return c, errors.New("a curve needs at least two points")
 	}
 	sort.Slice(c.Points, func(i, j int) bool { return c.Points[i][0] < c.Points[j][0] })
 	c.Fixed = min(max(c.Fixed, 0), 100)
+	if c.Sensor == "" {
+		c.Sensor = f.defaultSensor(id)
+	}
+	if len(c.Points) < 2 {
+		c.Points = defaultFanPoints()
+	}
+	return c, nil
+}
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (f *FanService) setConfigLocked(id string, c FanConfig) error {
 	for _, d := range f.fans {
 		if d.ID == id {
 			d.Config = c
 			f.cfg[id] = c
-			f.save()
 			return nil
 		}
 	}
 	return fmt.Errorf("unknown fan %q", id)
 }
 
+// presetsLocked returns the built-in Auto preset followed by the user's own.
+func (f *FanService) presetsLocked() []FanPreset {
+	out := f.builtinPresetsLocked()
+	for _, p := range f.presets {
+		out = append(out, clonePreset(p))
+	}
+	return out
+}
+
+// builtinPresetsLocked builds the Auto preset for the connected fans.
+func (f *FanService) builtinPresetsLocked() []FanPreset {
+	p := FanPreset{ID: "auto", Name: "Auto", Builtin: true}
+	for _, d := range f.fans {
+		p.Configs = append(p.Configs, FanPresetEntry{
+			FanID:  d.ID,
+			Config: FanConfig{Mode: "auto"},
+		})
+	}
+	return []FanPreset{p}
+}
+
+func (f *FanService) findPresetLocked(id string) (FanPreset, bool) {
+	for _, p := range f.builtinPresetsLocked() {
+		if p.ID == id {
+			return p, true
+		}
+	}
+	for _, p := range f.presets {
+		if p.ID == id {
+			return clonePreset(p), true
+		}
+	}
+	return FanPreset{}, false
+}
+
+func (f *FanService) currentConfigsLocked() []FanPresetEntry {
+	out := make([]FanPresetEntry, 0, len(f.fans))
+	for _, d := range f.fans {
+		out = append(out, FanPresetEntry{FanID: d.ID, Config: cloneConfig(d.Config)})
+	}
+	return out
+}
+
+func clonePreset(p FanPreset) FanPreset {
+	p.Configs = append([]FanPresetEntry(nil), p.Configs...)
+	for i := range p.Configs {
+		p.Configs[i].Config = cloneConfig(p.Configs[i].Config)
+	}
+	return p
+}
+
+func cloneConfig(c FanConfig) FanConfig {
+	c.Points = append([][2]int(nil), c.Points...)
+	return c
+}
+
 // relaunchElevated is set by RestartAsAdmin and acted on after shutdown,
-// once the single-instance lock is released.
-var relaunchElevated bool
+// once the single-instance lock is released. relaunchArgs carries a one-time
+// setup flag for the elevated copy.
+var (
+	relaunchElevated bool
+	relaunchArgs     []string
+)
 
 // RestartAsAdmin quits and relaunches the app elevated so motherboard fans
 // can be controlled.
 func (f *FanService) RestartAsAdmin() {
 	relaunchElevated = true
+	relaunchArgs = nil
 	application.Get().Quit()
 }
 
-func relaunchAsAdmin() {
+func relaunchAsAdmin(args ...string) {
 	exe, err := os.Executable()
 	if err != nil {
 		return
 	}
 	verb, _ := windows.UTF16PtrFromString("runas")
 	file, _ := windows.UTF16PtrFromString(exe)
-	windows.ShellExecute(0, verb, file, nil, nil, windows.SW_SHOWNORMAL)
+	var params *uint16
+	if len(args) > 0 {
+		params, _ = windows.UTF16PtrFromString(strings.Join(args, " "))
+	}
+	windows.ShellExecute(0, verb, file, params, nil, windows.SW_SHOWNORMAL)
 }
 
 func (f *FanService) save() {
@@ -405,6 +614,16 @@ func (f *FanService) save() {
 	os.MkdirAll(filepath.Dir(f.path), 0o755)
 	if b, err := json.MarshalIndent(f.cfg, "", "  "); err == nil {
 		os.WriteFile(f.path, b, 0o644)
+	}
+}
+
+func (f *FanService) savePresets() {
+	if f.presetPath == "" {
+		return
+	}
+	os.MkdirAll(filepath.Dir(f.presetPath), 0o755)
+	if b, err := json.MarshalIndent(f.presets, "", "  "); err == nil {
+		os.WriteFile(f.presetPath, b, 0o644)
 	}
 }
 

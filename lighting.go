@@ -13,9 +13,10 @@ import (
 //     loads its saved colours at power-up, so writing them doesn't change
 //     the display. Colours are still saved for when the app isn't running.
 //     The DPI LED follows the active stage, polled twice a second.
-//   - Keyboard: hardware effects, except during an animated sync, when a
-//     keyboard that takes custom frames (Razer) gets them from the same
-//     clock as the mouse. Other keyboards run the matching hardware effect.
+//   - Keyboard: hardware effects, except during an animated sync or for the
+//     app-drawn effects (fire, ripple, rain, comet), when a keyboard that
+//     takes custom frames (Razer) gets them from this loop. Other keyboards
+//     run the matching hardware effect.
 //
 // Settings changes update s.cfg and poke the loop.
 
@@ -54,6 +55,7 @@ func (s *PeripheralService) lightLoop() {
 	start := time.Now()
 	var (
 		kbCustom    frameKeyboard  // keyboard currently showing custom frames
+		kbFail      frameKeyboard  // software effect failed to start on this board
 		liveMs      *corsair.Mouse // mouse currently in software mode
 		sent        [corsair.ZoneCount]corsair.RGB
 		stagesFor   *corsair.Mouse
@@ -71,7 +73,7 @@ func (s *PeripheralService) lightLoop() {
 			l := s.cfg.Keyboard
 			s.mu.Unlock()
 			if kbCustom != nil {
-				kbCustom.setEffect(l)
+				kbCustom.setEffect(fallbackLighting(l))
 			}
 			if liveMs != nil {
 				liveMs.HardwareMode()
@@ -105,6 +107,10 @@ func (s *PeripheralService) lightLoop() {
 		if fk != kbCustom {
 			kbCustom = nil // replugged or gone
 		}
+		if fk != kbFail {
+			kbFail = nil
+		}
+		soft := !anim && softwareOn(kb, kbLight.Effect)
 		switch {
 		case anim && frames:
 			if kbCustom == nil && fk.startCustom() == nil {
@@ -117,9 +123,26 @@ func (s *PeripheralService) lightLoop() {
 					return razer.RGB{R: c.R, G: c.G, B: c.B}
 				})
 			}
+		case soft && kbCustom != nil:
+			rows, cols := fk.rows(), fk.columns()
+			c1 := effectColor(kbLight.Color)
+			fk.writeFrame(func(row, col int) razer.RGB {
+				return frameEffectColor(kbLight, c1, row, col, rows, cols, t)
+			})
+		case soft:
+			// First frame of an app-drawn effect. If the board refuses custom
+			// mode, show the closest hardware effect instead of retrying.
+			if kbFail != fk {
+				if fk.startCustom() == nil {
+					kbCustom = fk
+				} else {
+					kbFail = fk
+					kb.setEffect(fallbackLighting(kbLight))
+				}
+			}
 		case kbCustom != nil:
 			// Animation ended: back to the keyboard's hardware effect.
-			kbCustom.setEffect(kbLight)
+			kbCustom.setEffect(fallbackLighting(kbLight))
 			kbCustom = nil
 		}
 
@@ -174,7 +197,7 @@ func (s *PeripheralService) lightLoop() {
 		}
 
 		next := idleTick
-		if anim {
+		if anim || (soft && kbFail != fk) {
 			next = syncFrame
 		}
 		timer.Reset(next)

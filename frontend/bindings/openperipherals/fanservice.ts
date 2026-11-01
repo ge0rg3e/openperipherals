@@ -15,11 +15,33 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * ApplyPreset switches every fan in a preset at once.
+ */
+export function ApplyPreset(id: string): $CancellablePromise<void> {
+    return $Call.ByID(983451643, id);
+}
+
+/**
+ * DeletePreset removes a custom preset.
+ */
+export function DeletePreset(id: string): $CancellablePromise<void> {
+    return $Call.ByID(2941783964, id);
+}
+
+/**
  * RestartAsAdmin quits and relaunches the app elevated so motherboard fans
  * can be controlled.
  */
 export function RestartAsAdmin(): $CancellablePromise<void> {
     return $Call.ByID(3660878534);
+}
+
+/**
+ * SavePreset stores the current config of every fan under a name and returns
+ * the new preset's id.
+ */
+export function SavePreset(name: string): $CancellablePromise<string> {
+    return $Call.ByID(2492359734, name);
 }
 
 /**
@@ -34,4 +56,11 @@ export function SetFanConfig(id: string, c: $models.FanConfig): $CancellableProm
  */
 export function Status(): $CancellablePromise<$models.FanStatus> {
     return $Call.ByID(984878210);
+}
+
+/**
+ * UpdatePreset replaces a custom preset with the current config of every fan.
+ */
+export function UpdatePreset(id: string): $CancellablePromise<void> {
+    return $Call.ByID(2869444162, id);
 }

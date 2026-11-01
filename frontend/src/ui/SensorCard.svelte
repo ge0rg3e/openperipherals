@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import * as Card from "$lib/components/ui/card";
   import Icon from "./Icon.svelte";
 
   let {name, source, value, unit, kind, history = [], max}:
@@ -23,17 +24,17 @@
   });
 </script>
 
-<div class="sensor-card kind-{kind}" title="{name} · {source}">
-  <div class="sensor-top">
-    <div class="sensor-names">
-      <span class="sensor-name">{name}</span>
-      <span class="sensor-source">{source}</span>
+<Card.Root class="flex h-[112px] gap-0 shadow-none ring-0 min-w-0 flex-col overflow-hidden sensor-reading rounded-none border-0 border-b border-border bg-transparent px-1 py-2.5" title="{name} · {source}">
+  <div class="flex h-7 items-start justify-between gap-2">
+    <div class="grid min-w-0 flex-1">
+      <span class="truncate text-[11px] font-medium leading-tight">{name}</span>
+      <span class="truncate text-[10px] leading-tight text-muted-foreground">{source}</span>
     </div>
-    <span class="sensor-icon"><Icon name={ICONS[kind]} size={14} /></span>
+    <span class="shrink-0 text-muted-foreground"><Icon name={ICONS[kind]} size={13} /></span>
   </div>
-  <div class="sensor-value">{value}<span>{unit}</span></div>
-  <svg class="sensor-spark" viewBox="0 0 {W} {H}" preserveAspectRatio="none" aria-hidden="true">
-    {#if path}<path class="area" d="{path} L{W},{H} L0,{H} Z" />{/if}
-    <path class="line" d={path} />
+  <div class="mt-2 text-lg font-semibold leading-none tabular-nums">{value}<span class="ml-1 text-[9px] font-normal text-muted-foreground">{unit}</span></div>
+  <svg class="mt-auto h-7 w-full shrink-0 overflow-visible" viewBox="0 0 {W} {H}" preserveAspectRatio="none" aria-hidden="true">
+    {#if path}<path class="fill-primary/10" d="{path} L{W},{H} L0,{H} Z" />{/if}
+    <path class={kind === "temp" ? "fill-none stroke-orange-400" : kind === "fan" ? "fill-none stroke-sky-400" : kind === "memory" ? "fill-none stroke-violet-400" : "fill-none stroke-primary"} style="stroke-width:1.5" d={path} />
   </svg>
-</div>
+</Card.Root>

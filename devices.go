@@ -27,12 +27,34 @@ type keyboard interface {
 }
 
 // frameKeyboard is a keyboard that can show host-driven frames, used to keep
-// animated sync effects in step with the mouse.
+// animated sync effects in step with the mouse and to draw the app's software
+// effects.
 type frameKeyboard interface {
 	keyboard
 	startCustom() error
 	writeFrame(colour func(row, col int) razer.RGB) error
+	rows() int
 	columns() int
+}
+
+// softwareOn reports whether effect is drawn by the app for this keyboard.
+// Some effect ids (ripple) are software on Razer boards but run in the
+// firmware of other brands.
+func softwareOn(kb keyboard, effect string) bool {
+	if _, frames := kb.(frameKeyboard); !frames {
+		return false
+	}
+	return softwareEffect(effect)
+}
+
+// supportsEffect reports whether the keyboard's own effects list includes one.
+func supportsEffect(info KeyboardState, effect string) bool {
+	for _, e := range info.Effects {
+		if e == effect {
+			return true
+		}
+	}
+	return false
 }
 
 // supportedDevice reports whether vid:pid is a device any driver handles.
@@ -88,15 +110,21 @@ func newRazerKeyboard(kb *razer.Keyboard) *razerKeyboard {
 
 func (k *razerKeyboard) describe() KeyboardState {
 	m := k.kb.Model
-	effects := []string{"static", "spectrum", "wave", "breathing", "reactive", "starlight", "off"}
+	effects := []string{"static", "spectrum", "wave", "breathing", "reactive", "starlight"}
 	if m.Wheel {
 		effects = slices.Insert(effects, 3, "wheel")
 	}
+	// Boards that accept host frames can also run the app's software effects.
+	if m.Custom {
+		effects = append(effects, "fire", "ripple", "rain", "comet")
+	}
+	effects = append(effects, "off")
 	return KeyboardState{
 		Name: m.Name, Serial: k.kb.Serial, Firmware: k.kb.Firmware, Layout: m.Layout,
 		Media: m.PID == 0x0226, Effects: effects, Modes: true, HasBrightness: true, Stored: true,
-		Speeds: map[string]int{"reactive": 4, "starlight": 3}, Directional: []string{"wave", "wheel"},
-		Battery: -1, GameMode: k.gameMode, MacroLEDs: k.macroLEDs,
+		Speeds:      map[string]int{"reactive": 4, "starlight": 3, "fire": 4, "ripple": 4, "rain": 4, "comet": 4},
+		Directional: []string{"wave", "wheel", "comet"},
+		Battery:     -1, GameMode: k.gameMode, MacroLEDs: k.macroLEDs,
 	}
 }
 
@@ -131,6 +159,7 @@ func (k razerFrames) startCustom() error { return k.kb.StartCustom() }
 func (k razerFrames) writeFrame(c func(row, col int) razer.RGB) error {
 	return k.kb.WriteFrame(c)
 }
+func (k razerFrames) rows() int    { return k.kb.Model.Rows }
 func (k razerFrames) columns() int { return k.kb.Model.Cols }
 
 // asRazer returns the Razer keyboard behind kb, if it is one.
@@ -194,7 +223,7 @@ type redragonKeyboard struct {
 func (k *redragonKeyboard) describe() KeyboardState {
 	return KeyboardState{
 		Name: k.kb.Name, Layout: k.kb.Model.Layout, Effects: redragon.Effects, HasBrightness: true,
-		Speeds:      map[string]int{"wave": 4, "breathing": 4, "reactive": 4, "starlight": 4},
+		Speeds:      map[string]int{"wave": 4, "breathing": 4, "reactive": 4, "ripple": 4, "starlight": 4},
 		Directional: []string{"wave"}, Battery: -1,
 	}
 }

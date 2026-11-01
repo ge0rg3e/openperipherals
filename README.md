@@ -15,22 +15,23 @@ Lightweight RGB, DPI and fan control for your keyboard, mouse and PC, with no ve
 - **Lighting:** hardware effects (static, spectrum, wave, breathing, reactive, starlight and more), colours, speed and brightness, previewed live on a 3D model of your board.
 - **Lighting sync:** one effect and colour across keyboard and mouse, animated from a single clock.
 - **Mouse settings:** DPI and DPI stages, polling rate, lift-off distance, debounce, sleep timer, sensor options and battery level.
-- **Fan control:** motherboard and NVIDIA GPU fans on Auto, a fixed speed or a temperature curve, with safety limits.
+- **Fan control:** motherboard and NVIDIA GPU fans on Auto, a fixed speed or a temperature curve, with a built-in Auto preset, your own presets and safety limits.
 - **Disable keys:** turn off any key, media keys or the Huntsman Elite's dial (replaces Synapse's "Disable").
 - **Live sensors:** CPU, GPU, memory, VRAM and temperatures with 60-second trends.
+- **Live wallpaper:** local HTML scenes, MP4 videos or HTTP/HTTPS pages behind desktop icons, with a built-in Aurora scene, 15/24/30/60 FPS HTML animation targets, primary-display or span mode, and automatic suspension when covered, locked, sleeping, display-off or on battery.
 - **Stays out of the way:** runs from the tray, starts with Windows, and writes settings to the devices themselves so they stick after the app closes.
 
 ## Supported devices
 
 | Brand               | Devices                                                                                           | Lighting                                                                                                                  | Other settings                                                                                                    |
 | ------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Razer** keyboards | 81 models: BlackWidow, Huntsman, DeathStalker, Ornata, Anansi, Tartarus, Blade and Book laptops   | Static, spectrum, wave, breathing (single / dual / random), reactive, starlight, colour wheel (BlackWidow V4), brightness | Game mode, macro key lights, battery (wireless)                                                                   |
+| **Razer** keyboards | 81 models: BlackWidow, Huntsman, DeathStalker, Ornata, Anansi, Tartarus, Blade and Book laptops   | Static, spectrum, wave, breathing (single / dual / random), reactive, starlight, colour wheel (BlackWidow V4), fire, ripple, rain, comet, brightness | Game mode, macro key lights, battery (wireless)                                                                   |
 | **Razer** mice      | 68 models: DeathAdder, Viper, Basilisk, Naga, Cobra, Mamba, Lancehead, Orochi, Atheris, Pro Click | Static, spectrum, breathing, reactive                                                                                     | DPI, polling rate up to 8000 Hz, lift-off distance, sleep timer, battery                                          |
 | **Corsair**         | SABRE RGB, SABRE RGB Optical, SABRE RGB Laser                                                     | Per-zone colours (underglow, logo, wheel), brightness                                                                     | 6 DPI stages with indicator colours                                                                               |
 | **Logitech**        | G213, G512, G610, G810, G910, G910 Orion Spark, G Pro, G813, G815, G915, G915 TKL                 | Static, colour cycle, breathing; wave (G213, G915); ripple (G915); speed                                                  |                                                                                                                   |
-| **Redragon**        | K550, K552, K556, K582, K587, K589, K512                                                          | Static, spectrum, wave, breathing, reactive, starlight; speed, direction, brightness                                      |                                                                                                                   |
+| **Redragon**        | K550, K552, K556, K582, K587, K589, K512                                                          | Static, spectrum, wave, breathing, reactive, ripple, starlight; speed, direction, brightness                              |                                                                                                                   |
 | **Pulsar**          | Pulsar mice and the Pulsar 4K receiver                                                            |                                                                                                                           | DPI, polling rate, lift-off distance, debounce, Motion Sync, angle snapping, ripple control, sleep timer, battery |
-| **Fans**            | ITE Super I/O motherboard headers, NVIDIA GPU fans                                                |                                                                                                                           | Auto, fixed % or temperature curve                                                                                |
+| **Fans**            | ITE Super I/O motherboard headers, NVIDIA GPU fans                                                |                                                                                                                           | Auto, fixed % or temperature curve; Auto preset and your own presets                                              |
 
 <details>
 <summary><b>All Razer keyboards</b></summary>
@@ -68,19 +69,24 @@ Get the latest build from the [Releases](../../releases) page: `openperipherals-
 ## Getting started
 
 1. Quit Razer Synapse, Corsair iCUE, Logitech G HUB and any other RGB software. They keep sending lighting to the devices and will overwrite what OpenPeripherals sets.
-2. Run `openperipherals.exe`. Closing the window keeps it running in the tray; **Settings → Start with Windows** launches it there at login.
-3. For motherboard fans, run it as administrator. They are controlled through the [PawnIO](https://pawnio.eu) driver.
+2. Run `openperipherals.exe`. Closing the window keeps it running in the tray; **Settings → Start with Windows** launches it there at login. Click or right-click the tray icon for lighting sync, keyboard brightness and game mode, mouse DPI and polling rate, and fan presets (depending on connected devices). Choose **Open OpenPeripherals** to open the full app.
+3. For motherboard fans, run it as administrator. They are controlled through the [PawnIO](https://pawnio.eu) driver. Enabling **Start with Windows** registers a highest-privilege logon task, so from then on the app (and any manual launch) starts elevated without a UAC prompt.
 
 ### Good to know
 
+- Live wallpaper uses a separate WebView2 host mode of the same executable, with its own browser profile, muted audio and no device-control bridge. Local scenes load assets from the HTML file's folder. The frame target caps `requestAnimationFrame`; CSS, videos and web workers can use more resources. Closing the app window stops the wallpaper and restores your existing Windows wallpaper while peripheral controls continue in the tray. You can also pause or stop wallpaper from the tray. A memory-only snapshot holds the last frame during pause and resume, then gives way to the live view after it paints; snapshots are captured only at transitions and capped at 1080p to limit memory. If Explorer restarts, apply the scene again.
+- Choose **MP4 video**, browse to a local `.mp4`, and enable it for silent looping playback. Videos stream directly through WebView2's media pipeline without loading the whole file into Go memory or copying each frame through a canvas. Video playback pauses before the host suspends, using the same automatic pause settings as HTML wallpapers. Videos play at their encoded frame rate; use a 1080p, 30 FPS H.264 MP4 to keep resource use lower. Codec support depends on the installed WebView2 runtime; unsupported or damaged videos show a playback error.
+
 - Razer, Corsair and Pulsar settings are saved on the device. Logitech and Redragon keyboards can't report their lighting back, so the app re-applies it when they connect.
 - Animated sync is streamed to Razer keyboards and the SABRE in step. Other keyboards and Razer mice run the matching built-in effect.
+- Fire, ripple, rain and comet on Razer boards are drawn by the app, so they run while it is open and fall back to the nearest hardware effect when it quits.
 - Disabled keys use a keyboard hook, so they only apply while the app is running (including from the tray). Media keys and the dial are blocked only on the connected keyboard; other keys are blocked on every keyboard.
 - Fan safety: motherboard fans never go below 20% under app control, every controlled fan goes to 100% if the CPU reaches 90 °C or a curve's sensor stops reporting, and quitting hands every fan back to Auto.
+- Presets save the fan settings you have now. Change a fan while a preset is active and its card shows **Update** to write the new values back. **Auto** is built in.
 
 ## How it works
 
-Go + Wails v3, a pure-Go HID layer (no cgo) and a small Svelte UI. Each brand has its own driver:
+Go + Wails v3, a pure-Go HID layer (no cgo) and a Svelte UI styled with Tailwind CSS v4 through its Vite plugin. Shared theme tokens and component utilities live in `frontend/src/app.css`; page layouts use utility classes. Device geometry and animated lighting keep the custom CSS they need. Each brand has its own driver:
 
 | Package                              | Protocol                                                                        |
 | ------------------------------------ | ------------------------------------------------------------------------------- |

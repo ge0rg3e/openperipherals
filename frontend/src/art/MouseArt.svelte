@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Flat top-down SABRE built from solid facets (no gradients). Zones:
+  // Contoured SABRE with soft shell highlights and live lighting zones:
   // underglow, logo, DPI indicator, scroll wheel. With an animated `sync`,
   // the zones play the effect the app streams to the real mouse.
   import {onMount} from "svelte";
@@ -10,6 +10,7 @@
     {colors: string[]; sync?: SyncLighting | null; brightness?: number; interactive?: boolean} = $props();
 
   const DPI = 2;
+  const id = $props.id();
   const POS = [0.45, 0.7, 0.2, 0.1]; // zone positions front-to-back, as in the backend
   const live = $derived(!!sync?.enabled && ["spectrum", "wave", "breathing"].includes(sync.effect));
   let frame = $state<string[]>([]);
@@ -47,17 +48,35 @@
   const FRONT_BAR = "M52 46 C70 26 150 26 168 46";
 </script>
 
-<div class="mouse-art" onpointermove={move} onpointerleave={() => (tilt = {x: 0, y: 0})} role="img" aria-label="Mouse lighting preview">
-  <svg viewBox="0 0 220 360" style="transform: rotateX({(interactive ? 8 : 0) + tilt.x}deg) rotateY({tilt.y}deg)" aria-hidden="true">
+<div class="grid h-full aspect-[220/360] place-items-center [perspective:800px]" onpointermove={move} onpointerleave={() => (tilt = {x: 0, y: 0})} role="img" aria-label="Mouse lighting preview">
+  <svg class="h-full w-auto overflow-visible transition-transform duration-300" viewBox="0 0 220 360" style="transform: rotateX({(interactive ? 8 : 0) + tilt.x}deg) rotateY({tilt.y}deg)" aria-hidden="true">
+    <defs>
+      <radialGradient id="{id}-shell" cx=".35" cy=".3" r=".78">
+        <stop stop-color="#49515e" /><stop offset=".4" stop-color="#2b323e" /><stop offset=".8" stop-color="#181e28" /><stop offset="1" stop-color="#0c1119" />
+      </radialGradient>
+      <linearGradient id="{id}-button" x1="0" y1="0" x2=".85" y2="1">
+        <stop stop-color="#626d7d" /><stop offset=".2" stop-color="#3b4554" /><stop offset=".7" stop-color="#252d39" /><stop offset="1" stop-color="#1a212b" />
+      </linearGradient>
+      <linearGradient id="{id}-edge" x2="1" y2="1">
+        <stop stop-color="#a5b3c4" stop-opacity=".65" /><stop offset=".5" stop-color="#657286" stop-opacity=".12" /><stop offset="1" stop-color="#8393a8" stop-opacity=".25" />
+      </linearGradient>
+      <filter id="{id}-glow" x="-60%" y="-30%" width="220%" height="160%"><feGaussianBlur stdDeviation="5" /></filter>
+    </defs>
+    <path d={SHELL} transform="translate(0 7)" fill="#05080d" />
+    <path d={SHELL} fill="none" stroke={zone(0)} stroke-width="7" opacity=".24" filter="url(#{id}-glow)" />
     <!-- underglow: lit rim around the base and the light bar under the front -->
     <path d={SHELL} transform="translate(110 179) scale(1.07) translate(-110 -179)" fill="none" stroke={zone(0)} stroke-width="4" stroke-opacity="0.55" />
     <path d={FRONT_BAR} transform="translate(0 -10)" fill="none" stroke={zone(0)} stroke-width="5" stroke-linecap="round" />
 
     <!-- body -->
-    <path d={SHELL} fill="#17191e" stroke="#2a2d35" stroke-width="2" />
-    <path d={PALM_FACET} fill="#1c1f25" />
-    <path d={LEFT} fill="#22252c" />
-    <path d={RIGHT} fill="#1f2228" />
+    <path d={SHELL} fill="url(#{id}-shell)" stroke="url(#{id}-edge)" stroke-width="2" />
+    <path d={PALM_FACET} fill="#090f19" opacity=".16" />
+    <path d={LEFT} fill="url(#{id}-button)" stroke="#a2b0c3" stroke-opacity=".15" />
+    <path d={RIGHT} fill="url(#{id}-button)" stroke="#a2b0c3" stroke-opacity=".1" />
+    <path d="M48 139 C47 89 57 51 84 37 M48 179 C48 238 61 283 83 303" fill="none" stroke="#b1bfd0" stroke-opacity=".18" stroke-width="2" stroke-linecap="round" />
+    {#each Array(12) as _, i}
+      <path d="M{41 + i * .25} {191 + i * 6} l9 3" stroke="#060b12" stroke-opacity=".6" stroke-width="2" />
+    {/each}
     <path d="M42 150 H178" stroke="#0b0c0f" stroke-width="2.5" />
     <path d="M110 20 V150" stroke="#0b0c0f" stroke-width="3" />
 
@@ -67,7 +86,9 @@
 
     <!-- wheel channel, wheel, DPI buttons -->
     <rect x="98" y="40" width="24" height="74" rx="12" fill="#0b0c0f" />
-    <rect x="102" y="46" width="16" height="62" rx="8" fill={zone(3)} />
+    <rect x="100" y="44" width="20" height="66" rx="10" fill="#566170" />
+    <rect x="103" y="47" width="14" height="60" rx="7" fill={zone(3)} />
+    <path d="M106 51 V102" stroke="#fff" stroke-opacity=".25" stroke-width="2" />
     {#each [56, 64, 72, 80, 88, 96] as y}
       <rect x="102" y={y} width="16" height="2.5" fill="#0b0c0f" opacity="0.4" />
     {/each}

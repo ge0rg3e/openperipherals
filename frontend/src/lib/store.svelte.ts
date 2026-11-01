@@ -12,7 +12,7 @@ import {
 } from "../../bindings/openperipherals";
 import type {Stats} from "../../bindings/openperipherals/internal/sysstats";
 
-export type View = "home" | "keyboard" | "mouse" | "cooling" | "settings";
+export type View = "home" | "keyboard" | "mouse" | "cooling" | "wallpaper" | "settings";
 
 export const DPI_ZONE = 2;
 const DEFAULT_MOUSE_LIGHTING: KeyboardLighting = {
@@ -85,6 +85,15 @@ function setFans(f: FanStatus) {
   }
 }
 
+/** Re-read the fan snapshot, e.g. after applying or editing a preset. */
+export async function refreshFans() {
+  try {
+    setFans(await FanService.Status());
+  } catch (e) {
+    notify(e);
+  }
+}
+
 async function sample() {
   if (document.visibilityState !== "visible") return;
   try {
@@ -109,12 +118,20 @@ export function start(): () => void {
   FanService.Status().then(setFans).catch(notify);
   const offStatus = Events.On("status", (e) => setStatus(e.data));
   const offFans = Events.On("fans", (e) => setFans(e.data));
+  const offTray = Events.On("tray-settings", (e) => {
+    app.kb = null;
+    app.mouse = null;
+    setStatus(e.data);
+    PeripheralService.Sync().then((s) => (app.sync = s)).catch(notify);
+    refreshFans();
+  });
   sample();
   const timer = setInterval(sample, 1000);
   document.addEventListener("visibilitychange", sample);
   return () => {
     offStatus();
     offFans();
+    offTray();
     clearInterval(timer);
     document.removeEventListener("visibilitychange", sample);
   };
@@ -134,11 +151,12 @@ export async function rescan() {
 
 export const EFFECT_NAMES: Record<string, string> = {
   static: "Static", spectrum: "Spectrum", wave: "Wave", wheel: "Wheel", breathing: "Breathing",
-  reactive: "Reactive", starlight: "Starlight", off: "Off",
+  reactive: "Reactive", starlight: "Starlight", fire: "Fire", ripple: "Ripple", rain: "Rain",
+  comet: "Comet", off: "Off",
 };
 
 /** Effects that use the colour pickers (unless their mode is random). */
-export const COLOR_EFFECTS = ["static", "reactive", "breathing", "starlight"];
+export const COLOR_EFFECTS = ["static", "reactive", "breathing", "starlight", "fire", "ripple", "rain", "comet"];
 
 export function applyKeyboard() {
   if (!app.kb) return;

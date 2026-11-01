@@ -14,6 +14,8 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "fans": main$0.FanStatus;
             "status": main$0.Status;
+            "tray-settings": main$0.Status;
+            "wallpaper": main$0.WallpaperStatus;
         }
     }
 }

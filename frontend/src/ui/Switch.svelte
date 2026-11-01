@@ -1,9 +1,18 @@
 <script lang="ts">
+  import {Switch as SwitchPrimitive} from "$lib/components/ui/switch";
+
   let {checked, label, disabled = false, onchange}:
     {checked: boolean; label: string; disabled?: boolean; onchange?: (next: boolean) => void} = $props();
+
+  function stopClick(event: MouseEvent) {
+    event.stopPropagation();
+  }
 </script>
 
-<button class="switch" class:on={checked} role="switch" aria-checked={checked} aria-label={label} {disabled}
-        onclick={(e) => { e.stopPropagation(); onchange?.(!checked); }}>
-  <span class="switch-knob"></span>
-</button>
+<SwitchPrimitive
+  {checked}
+  {disabled}
+  aria-label={label}
+  onclick={stopClick}
+  onCheckedChange={(next) => onchange?.(next)}
+/>

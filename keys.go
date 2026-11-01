@@ -3,11 +3,6 @@ package main
 import (
 	"fmt"
 	"maps"
-	"os"
-	"os/exec"
-	"syscall"
-
-	"golang.org/x/sys/windows/registry"
 
 	"openperipherals/internal/keyblock"
 )
@@ -31,11 +26,6 @@ var legacyKeys = map[string]struct {
 	"next":        {"MediaTrackNext", 0xb0},
 	"stop":        {"MediaStop", 0xb2},
 }
-
-const (
-	runKey  = `Software\Microsoft\Windows\CurrentVersion\Run`
-	runName = "OpenPeripherals"
-)
 
 // migrateKeys moves keys saved in the old list format into DisabledKeys.
 func (s *PeripheralService) migrateKeys() {
@@ -127,55 +117,4 @@ func (s *PeripheralService) followKeyboard() {
 	if target != ([2]uint16{}) {
 		s.keyWatch = keyblock.Watch(target[0], target[1])
 	}
-}
-
-// Autostart reports whether the app starts with Windows.
-func (s *PeripheralService) Autostart() bool {
-	if schtasks("/Query", "/TN", runName) == nil {
-		return true
-	}
-	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.QUERY_VALUE)
-	if err != nil {
-		return false
-	}
-	defer k.Close()
-	_, _, err = k.GetStringValue(runName)
-	return err == nil
-}
-
-// SetAutostart starts the app hidden in the tray at login, or stops doing so.
-// When elevated it registers a highest-privilege logon task, so fan control
-// works at startup without a UAC prompt; otherwise it uses the Run key.
-func (s *PeripheralService) SetAutostart(enabled bool) error {
-	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer k.Close()
-	if err := k.DeleteValue(runName); err != nil && err != registry.ErrNotExist {
-		return err
-	}
-	if schtasks("/Query", "/TN", runName) == nil {
-		if err := schtasks("/Delete", "/TN", runName, "/F"); err != nil {
-			return fmt.Errorf("remove startup task (needs administrator): %w", err)
-		}
-	}
-	if !enabled {
-		return nil
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	cmd := fmt.Sprintf(`"%s" %s`, exe, hiddenFlag)
-	if elevated() {
-		return schtasks("/Create", "/TN", runName, "/TR", cmd, "/SC", "ONLOGON", "/RL", "HIGHEST", "/F")
-	}
-	return k.SetStringValue(runName, cmd)
-}
-
-func schtasks(args ...string) error {
-	c := exec.Command("schtasks.exe", args...)
-	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
-	return c.Run()
 }

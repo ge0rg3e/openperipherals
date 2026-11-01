@@ -39,6 +39,7 @@ const (
 	EffectWave      Effect = "wave"
 	EffectBreathing Effect = "breathing"
 	EffectReactive  Effect = "reactive"
+	EffectRipple    Effect = "ripple"
 )
 
 // Model describes a supported keyboard.
@@ -53,7 +54,7 @@ type Model struct {
 var (
 	basic    = []Effect{EffectOff, EffectStatic, EffectSpectrum, EffectBreathing}
 	withWave = []Effect{EffectOff, EffectStatic, EffectSpectrum, EffectWave, EffectBreathing}
-	g915FX   = []Effect{EffectOff, EffectStatic, EffectSpectrum, EffectWave, EffectBreathing, EffectReactive}
+	g915FX   = []Effect{EffectOff, EffectStatic, EffectSpectrum, EffectWave, EffectBreathing, EffectReactive, EffectRipple}
 )
 
 // Models lists the supported keyboards.
@@ -163,6 +164,11 @@ func (f Family) mode(e Effect) byte {
 	case EffectWave:
 		if f == G213 || f == G915 {
 			return modeWave
+		}
+		return modeCycle
+	case EffectRipple:
+		if f == G915 {
+			return modeRipple
 		}
 		return modeCycle
 	case EffectReactive:

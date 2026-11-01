@@ -31,6 +31,7 @@ const (
 	modeBreathing = 0x05
 	modeStatic    = 0x06
 	modeReactive  = 0x07
+	modeRipple    = 0x08
 	modeStarlight = 0x0a
 )
 
@@ -51,7 +52,7 @@ var Models = []Model{
 }
 
 // Effects lists the effects the firmware renders.
-var Effects = []string{"off", "static", "spectrum", "wave", "breathing", "reactive", "starlight"}
+var Effects = []string{"off", "static", "spectrum", "wave", "breathing", "reactive", "ripple", "starlight"}
 
 // Supported reports whether pid is a known keyboard.
 func Supported(pid uint16) bool {
@@ -130,12 +131,14 @@ func modePacket(p EffectParams) []byte {
 		mode = modeBreathing
 	case "reactive":
 		mode = modeReactive
+	case "ripple":
+		mode = modeRipple
 	case "starlight":
 		mode = modeStarlight
 	}
 	speed := byte(0x03) // normal
 	switch p.Effect {
-	case "wave", "breathing", "reactive", "starlight":
+	case "wave", "breathing", "reactive", "ripple", "starlight":
 		speed = speedByte(p.Speed)
 	}
 	brightness := byte(min(max(p.Brightness, 0), 4))

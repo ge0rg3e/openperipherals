@@ -18,3 +18,13 @@ export const Fans = "fans";
  */
 export const Status = "status";
 
+/**
+ * Name of the custom event "tray-settings".
+ */
+export const TraySettings = "tray-settings";
+
+/**
+ * Name of the custom event "wallpaper".
+ */
+export const Wallpaper = "wallpaper";
+

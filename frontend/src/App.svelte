@@ -7,6 +7,7 @@
   import MousePage from "./pages/MousePage.svelte";
   import CoolingPage from "./pages/CoolingPage.svelte";
   import SettingsPage from "./pages/SettingsPage.svelte";
+  import WallpaperPage from "./pages/WallpaperPage.svelte";
   import {app, start} from "./lib/store.svelte";
 
   onMount(start);
@@ -17,24 +18,28 @@
   });
 </script>
 
-<div class="shell" class:no-sidebar={!app.sidebar}>
+<div class="app-shell" class:with-sidebar={app.sidebar}>
   <TopBar />
   {#if app.sidebar}<Sidebar />{/if}
-  <main class="content">
-    {#if app.view === "keyboard"}
-      <KeyboardPage />
-    {:else if app.view === "mouse"}
-      <MousePage />
-    {:else if app.view === "cooling"}
-      <CoolingPage />
-    {:else if app.view === "settings"}
-      <SettingsPage />
-    {:else}
-      <Home />
-    {/if}
+  <main class="workspace">
+    <div class="page-content">
+      {#if app.view === "keyboard"}
+        <KeyboardPage />
+      {:else if app.view === "mouse"}
+        <MousePage />
+      {:else if app.view === "cooling"}
+        <CoolingPage />
+      {:else if app.view === "settings"}
+        <SettingsPage />
+      {:else if app.view === "wallpaper"}
+        <WallpaperPage />
+      {:else}
+        <Home />
+      {/if}
+    </div>
   </main>
 
   {#if app.error}
-    <div class="toast" role="alert">{app.error}</div>
+    <div class="fixed right-5 bottom-5 z-50 max-w-md rounded-lg border border-destructive/40 bg-destructive/15 px-4 py-3 text-sm text-foreground shadow-lg" role="alert">{app.error}</div>
   {/if}
 </div>

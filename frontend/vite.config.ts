@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import wails from "@wailsio/runtime/plugins/vite";
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -9,5 +11,10 @@ export default defineConfig({
     port: Number(process.env.WAILS_VITE_PORT) || 9245,
     strictPort: true,
   },
-  plugins: [svelte(), wails("./bindings")],
+  resolve: {
+    alias: {
+      $lib: path.resolve("./src/lib"),
+    },
+  },
+  plugins: [tailwindcss(), svelte(), wails("./bindings")],
 });

@@ -262,6 +262,16 @@ func (s *PeripheralService) restoreKeyboard() {
 		}
 		l = syncKeyboardLighting(s.cfg.Sync, l)
 	}
+	if softwareOn(s.kb, l.Effect) {
+		// The lighting loop streams it; just restore brightness.
+		s.restoreBrightness()
+		return
+	}
+	if softwareEffect(l.Effect) && !supportsEffect(s.kbInfo, l.Effect) {
+		// A different keyboard is connected now; show the closest effect it
+		// can do without dropping the saved choice.
+		l = fallbackLighting(l)
+	}
 	s.kb.setEffect(l)
 	s.restoreBrightness()
 }
@@ -387,12 +397,21 @@ func (s *PeripheralService) SetKeyboardLighting(l KeyboardLighting) error {
 		return errNoKeyboard
 	}
 	s.stopSyncForDevice()
-	if err := s.kb.setEffect(l); err != nil {
+	if softwareOn(s.kb, l.Effect) {
+		// The lighting loop streams these as custom frames; they can't be
+		// written to the keyboard like a hardware effect.
+		if err := s.kb.(frameKeyboard).startCustom(); err != nil {
+			return fmt.Errorf("start custom lighting: %w", err)
+		}
+	} else if softwareEffect(l.Effect) && !supportsEffect(s.kbInfo, l.Effect) {
+		return fmt.Errorf("keyboard does not support the %s effect", l.Effect)
+	} else if err := s.kb.setEffect(l); err != nil {
 		s.dropKeyboard()
 		return err
 	}
 	s.cfg.Keyboard = l
 	s.save()
+	s.pokeLighting()
 	return nil
 }
 
