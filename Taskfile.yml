@@ -9,6 +9,8 @@ vars:
   # by `wails3 build GOOS=...` (or the GOOS env var) for cross-compilation. The
   # tasks below dispatch to the matching platform Taskfile via this variable.
   GOOS: '{{.GOOS | default OS}}'
+  VERSION: '{{.VERSION | default "0.0.1"}}'
+  INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
 
 includes:
   common: ./build/Taskfile.yml
@@ -23,11 +25,16 @@ tasks:
     summary: Builds the application
     cmds:
       - task: "{{.GOOS}}:build"
+        vars:
+          VERSION: '{{.VERSION}}'
 
   package:
     summary: Packages a production build of the application
     cmds:
       - task: "{{.GOOS}}:package"
+        vars:
+          VERSION: '{{.VERSION}}'
+          INSTALL_SCOPE: '{{.INSTALL_SCOPE}}'
 
   run:
     summary: Runs the application

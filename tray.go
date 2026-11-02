@@ -16,7 +16,7 @@ const trayRefresh = 3 * time.Second
 
 // Read hardware away from the UI thread, and rebuild on each opening so device
 // capabilities, saved presets and checkmarks follow changes made in the app.
-func setupTrayMenu(app *application.App, tray *application.SystemTray, fans *FanService, devices *PeripheralService, wallpapers *WallpaperService, show func()) {
+func setupTrayMenu(app *application.App, tray *application.SystemTray, fans *FanService, devices *PeripheralService, wallpapers *WallpaperService, updatesEnabled bool, show func()) {
 	var opening sync.Mutex
 	var previous *application.Menu
 	open := func() {
@@ -27,7 +27,7 @@ func setupTrayMenu(app *application.App, tray *application.SystemTray, fans *Fan
 			st, fs, sy := devices.Status(), fans.Status(), devices.Sync()
 			application.InvokeAsync(func() {
 				defer opening.Unlock()
-				menu := quickSettingsMenu(app, fans, devices, wallpapers, st, fs, sy, show)
+				menu := quickSettingsMenu(app, fans, devices, wallpapers, st, fs, sy, updatesEnabled, show)
 				if previous != nil {
 					previous.Destroy()
 				}
@@ -42,7 +42,7 @@ func setupTrayMenu(app *application.App, tray *application.SystemTray, fans *Fan
 	tray.OnDoubleClick(show)
 }
 
-func quickSettingsMenu(app *application.App, fans *FanService, devices *PeripheralService, wallpapers *WallpaperService, st Status, fs FanStatus, sy SyncLighting, show func()) *application.Menu {
+func quickSettingsMenu(app *application.App, fans *FanService, devices *PeripheralService, wallpapers *WallpaperService, st Status, fs FanStatus, sy SyncLighting, updatesEnabled bool, show func()) *application.Menu {
 	menu := application.NewMenu()
 	menu.Add("Open OpenPeripherals").OnClick(func(*application.Context) { show() })
 	menu.AddSeparator()
@@ -161,6 +161,10 @@ func quickSettingsMenu(app *application.App, fans *FanService, devices *Peripher
 		wallpaperMenu.Add("Start saved wallpaper").OnClick(action(func() error { _, err := wallpapers.Apply(wp.Config); return err }))
 	}
 	menu.AddSeparator()
+	if updatesEnabled {
+		addUpdaterMenu(menu, app)
+		menu.AddSeparator()
+	}
 	menu.Add("Quit").OnClick(func(*application.Context) { app.Quit() })
 	return menu
 }

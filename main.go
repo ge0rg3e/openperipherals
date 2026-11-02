@@ -84,6 +84,7 @@ func main() {
 			},
 		},
 	})
+	updatesEnabled := setupUpdater(app)
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
@@ -115,7 +116,7 @@ func main() {
 	tray := app.SystemTray.New()
 	tray.SetIcon(trayIcon)
 	tray.SetTooltip("OpenPeripherals")
-	setupTrayMenu(app, tray, fans, devices, wallpapers, func() { window.Show().Focus() })
+	setupTrayMenu(app, tray, fans, devices, wallpapers, updatesEnabled, func() { window.Show().Focus() })
 	stopTray := make(chan struct{})
 	defer close(stopTray)
 	go runTrayTooltip(tray, fans, devices, stopTray)

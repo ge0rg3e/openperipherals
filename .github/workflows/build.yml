@@ -1,5 +1,5 @@
 # Builds the Windows app and its installer on every push and pull request.
-# Pushing a tag such as v0.2.0 also publishes them as a GitHub pre-release.
+# Pushing a tag such as v0.2.0 also publishes a GitHub release and signed updater manifest.
 #
 # Uses the Wails build pipeline (https://v3.wails.io, "Building" and
 # "Windows" guides): `wails3 package` runs build/windows/Taskfile.yml, which
@@ -49,17 +49,50 @@ jobs:
           }
 
       - name: Build app and installer
-        run: wails3 package
+        shell: pwsh
+        run: |
+          $version = "0.0.1"
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+          }
+          wails3 package VERSION=$version INSTALL_SCOPE=user
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item bin/openperipherals.exe bin/openperipherals-updater-windows-amd64.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: openperipherals-windows
           path: bin/*.exe
 
+      - name: Create signed updater manifest
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          WAILS_UPDATER_PRIVATE_KEY: ${{ secrets.WAILS_UPDATER_PRIVATE_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:WAILS_UPDATER_PRIVATE_KEY) {
+            throw 'Set the WAILS_UPDATER_PRIVATE_KEY repository secret to the private key generated for updater.key.pub.'
+          }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'openperipherals-updater.key'
+          [System.IO.File]::WriteAllText($keyPath, $env:WAILS_UPDATER_PRIVATE_KEY)
+          try {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            wails3 updater manifest `
+              -version $version `
+              -key $keyPath `
+              -url-prefix "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/" `
+              -output bin/manifest.json `
+              bin/openperipherals-updater-windows-amd64.exe
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Remove-Item $keyPath -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: bin/*.exe
-          prerelease: true
+          files: |
+            bin/*.exe
+            bin/manifest.json
           generate_release_notes: true
