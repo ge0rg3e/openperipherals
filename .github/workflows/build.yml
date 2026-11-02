@@ -58,7 +58,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: openperipherals-windows
-          path: bin/*.exe
+          path: bin/openperipherals-amd64-installer.exe
 
       - name: Create signed updater manifest
         if: startsWith(github.ref, 'refs/tags/v')
@@ -89,6 +89,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            bin/*.exe
+            bin/openperipherals-amd64-installer.exe
+            bin/openperipherals-updater-windows-amd64.exe
             bin/manifest.json
           generate_release_notes: true

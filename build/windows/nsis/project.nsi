@@ -31,6 +31,10 @@ Unicode true
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ## !define WAILS_INSTALL_SCOPE     "user"             # Default "machine" - set to "user" for per-user install ($LOCALAPPDATA) without UAC prompt
 ####
+!define INFO_PROJECTNAME "openperipherals"
+!define INFO_COMPANYNAME "ge0rg3e"
+!define INFO_PRODUCTNAME "OpenPeripherals"
+
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
