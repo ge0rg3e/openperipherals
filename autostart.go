@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -106,6 +108,10 @@ func prepareAutostart(args []string) bool {
 	if elevated() || viaTask || !autostartTaskExists() {
 		return false
 	}
+	if !autostartTaskTargetsCurrentExecutable() {
+		log.Printf("startup task targets a different executable; launching current copy normally")
+		return false
+	}
 	return relaunchThroughTask()
 }
 
@@ -140,6 +146,31 @@ func installAutostartTask() error {
 
 func autostartTaskExists() bool {
 	return schtasks("/Query", "/TN", runName) == nil
+}
+
+func autostartTaskTargetsCurrentExecutable() bool {
+	executable, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("schtasks.exe", "/Query", "/TN", runName, "/XML")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	var task struct {
+		Actions struct {
+			Exec struct {
+				Command string `xml:"Command"`
+			} `xml:"Exec"`
+		} `xml:"Actions"`
+	}
+	if err := xml.Unmarshal(output, &task); err != nil {
+		return false
+	}
+	command := strings.Trim(strings.TrimSpace(task.Actions.Exec.Command), `"`)
+	return strings.EqualFold(filepath.Clean(command), filepath.Clean(executable))
 }
 
 func relaunchThroughTask() bool {
