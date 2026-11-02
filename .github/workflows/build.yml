@@ -1,5 +1,4 @@
-# Builds the Windows app and its installer on every push and pull request.
-# Pushing a tag such as v0.2.0 also publishes a GitHub release and signed updater manifest.
+# Builds and publishes a Windows release when a version tag such as v0.2.0 is pushed.
 #
 # Uses the Wails build pipeline (https://v3.wails.io, "Building" and
 # "Windows" guides): `wails3 package` runs build/windows/Taskfile.yml, which
@@ -9,10 +8,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
