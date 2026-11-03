@@ -20,17 +20,12 @@ var currentVersion = "0.0.1"
 var updaterPublicKey []byte
 
 func setupUpdater(app *application.App) bool {
-	manifest := "manifest.json"
-	switch runtime.GOOS {
-	case "linux":
-		manifest = "manifest-linux.json"
-	case "windows":
-	default:
+	if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
 		return false
 	}
 
 	provider, err := endpoint.New(endpoint.Config{
-		URL: "https://github.com/ge0rg3e/openperipherals/releases/latest/download/" + manifest,
+		URL: "https://github.com/ge0rg3e/openperipherals/releases/latest/download/manifest.json",
 	})
 	if err != nil {
 		log.Printf("update provider: %v", err)

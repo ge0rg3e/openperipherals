@@ -1,0 +1,143 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Wails CLI and NSIS
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          choco install nsis --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nsisDirectories = @(
+            "${env:ProgramFiles(x86)}\NSIS",
+            "$env:ProgramFiles\NSIS"
+          )
+          $nsisDirectory = $nsisDirectories | Where-Object { Test-Path -LiteralPath (Join-Path $_ 'makensis.exe') } | Select-Object -First 1
+          if (-not $nsisDirectory) { throw 'NSIS installation did not provide makensis.exe.' }
+          $nsisDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build Windows installer
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          wails3 package VERSION=$version INSTALL_SCOPE=user
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item bin/openperipherals.exe bin/openperipherals-updater-windows-amd64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            bin/openperipherals-amd64-installer.exe
+            bin/openperipherals-updater-windows-amd64.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libx11-dev
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run check
+          npm run build
+
+      - name: Test and build
+        run: |
+          go test -tags 'production gtk3' ./...
+          mkdir -p bin
+          version=0.0.1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          go build -tags 'production gtk3' -trimpath -ldflags "-X main.currentVersion=$version" -o bin/openperipherals .
+
+      - name: Package
+        run: |
+          cp build/linux/70-openperipherals.rules README.md LICENSE bin/
+          tar -C bin -czf bin/openperipherals-linux-amd64.tar.gz openperipherals 70-openperipherals.rules README.md LICENSE
+          cp bin/openperipherals bin/openperipherals-updater-linux-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            bin/openperipherals-linux-amd64.tar.gz
+            bin/openperipherals-updater-linux-amd64
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install Wails release tool dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libx11-dev
+      - name: Install Wails release tools
+        run: go install -tags gtk3 github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
+      - name: Create signed update manifest
+        env:
+          WAILS_UPDATER_PRIVATE_KEY: ${{ secrets.WAILS_UPDATER_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$WAILS_UPDATER_PRIVATE_KEY" ]]; then
+            echo "Set the WAILS_UPDATER_PRIVATE_KEY repository secret before publishing releases." >&2
+            exit 1
+          fi
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/updater.key"' EXIT
+          printf '%s' "$WAILS_UPDATER_PRIVATE_KEY" > "$RUNNER_TEMP/updater.key"
+          version="${GITHUB_REF_NAME#v}"
+          wails3 updater manifest \
+            -version "$version" \
+            -key "$RUNNER_TEMP/updater.key" \
+            -url-prefix "https://github.com/ge0rg3e/openperipherals/releases/download/${GITHUB_REF_NAME}/" \
+            -output dist/manifest.json \
+            dist/openperipherals-updater-*
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
