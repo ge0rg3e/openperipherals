@@ -1,3 +1,5 @@
+//go:build windows
+
 // Command fanprobe reads (never writes) fan speeds, duty cycles and
 // temperatures from the Super I/O chip and NVIDIA GPUs.
 package main

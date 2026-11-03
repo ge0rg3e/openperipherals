@@ -181,6 +181,11 @@ func (m *Mouse) get(pkt ...byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		// The protocol starts at cmdGet. Some HID transports include the
+		// unnumbered report's zero ID before that byte.
+		if len(buf) > 0 && buf[0] == 0 {
+			buf = buf[1:]
+		}
 		if len(buf) >= 12 && matches(buf, req) {
 			return buf, nil
 		}

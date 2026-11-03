@@ -1,6 +1,6 @@
 <script lang="ts">
   import {onMount} from "svelte";
-  import {Events} from "@wailsio/runtime";
+  import {Events, System} from "@wailsio/runtime";
   import {WallpaperService, type WallpaperStatus} from "../../bindings/openperipherals";
   import type {Config} from "../../bindings/openperipherals/internal/wallpaper/models";
   import WallpaperPanel from "../ui/WallpaperPanel.svelte";
@@ -56,3 +56,9 @@
 
 <WallpaperPanel bind:config {status} {busy} {loaded} {loadError}
   onretry={retry} onbrowse={browse} ontoggle={toggle} onsettingschange={settingsChanged} />
+
+{#if System.IsLinux() && status?.config.enabled}
+  <button class="mt-3 text-sm underline" disabled={busy} onclick={() => perform(() => WallpaperService.SetPaused(!status?.manualPause))}>
+    {status.manualPause ? "Resume wallpaper" : "Pause wallpaper"}
+  </button>
+{/if}

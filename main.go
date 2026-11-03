@@ -2,9 +2,7 @@ package main
 
 import (
 	"embed"
-	"encoding/json"
 	"log"
-	"openperipherals/internal/wallpaper"
 	"os"
 	"slices"
 
@@ -26,25 +24,9 @@ func init() {
 }
 
 func main() {
-	args := os.Args[1:]
-	if slices.Contains(args, "--wallpaper-host") {
-		if err := wallpaper.RunHost(os.Stdin, os.Stdout); err != nil {
-			_ = json.NewEncoder(os.Stdout).Encode(wallpaper.State{Phase: "error", Reason: err.Error()})
-			os.Exit(1)
-		}
+	exit, hidden := launchOptions(os.Args[1:])
+	if exit {
 		return
-	}
-	// Start through the elevated startup task when it exists. This keeps a
-	// manual launch free of UAC prompts too.
-	if prepareAutostart(args) {
-		return
-	}
-	viaTask := slices.Contains(args, viaTaskFlag)
-	hidden := slices.Contains(args, hiddenFlag)
-	if consumeShowRequest(viaTask) {
-		hidden = false
-		// Tell an already-running elevated copy to show its window too.
-		os.Args = append([]string{os.Args[0]}, withoutFlag(args, hiddenFlag)...)
 	}
 
 	fans := &FanService{}
@@ -60,11 +42,7 @@ func main() {
 			application.NewService(&SystemService{}),
 			application.NewService(wallpapers),
 		},
-		PostShutdown: func() {
-			if relaunchElevated {
-				relaunchAsAdmin(relaunchArgs...)
-			}
-		},
+		PostShutdown: postShutdown,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -100,26 +78,28 @@ func main() {
 		URL:              "/",
 	})
 
-	// Closing the window hides it to the tray instead of quitting.
-	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		window.Hide()
-		go func() {
-			if status := wallpapers.Status(); status.Config.Enabled {
-				if _, err := wallpapers.Stop(); err != nil {
-					log.Printf("stop wallpaper on window close: %v", err)
+	if windowsDesktop {
+		// Closing the window hides it to the tray instead of quitting.
+		window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			window.Hide()
+			go func() {
+				if status := wallpapers.Status(); status.Config.Enabled {
+					if _, err := wallpapers.Stop(); err != nil {
+						log.Printf("stop wallpaper on window close: %v", err)
+					}
 				}
-			}
-		}()
-		e.Cancel()
-	})
+			}()
+			e.Cancel()
+		})
 
-	tray := app.SystemTray.New()
-	tray.SetIcon(trayIcon)
-	tray.SetTooltip("OpenPeripherals")
-	setupTrayMenu(app, tray, fans, devices, wallpapers, updatesEnabled, func() { window.Show().Focus() })
-	stopTray := make(chan struct{})
-	defer close(stopTray)
-	go runTrayTooltip(tray, fans, devices, stopTray)
+		tray := app.SystemTray.New()
+		tray.SetIcon(trayIcon)
+		tray.SetTooltip("OpenPeripherals")
+		setupTrayMenu(app, tray, fans, devices, wallpapers, updatesEnabled, func() { window.Show().Focus() })
+		stopTray := make(chan struct{})
+		defer close(stopTray)
+		go runTrayTooltip(tray, fans, devices, stopTray)
+	}
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

@@ -2,7 +2,7 @@
 
 ![Beta](https://img.shields.io/badge/status-beta-3ddc84)
 ![Windows](https://img.shields.io/badge/Windows-supported-3ddc84?logo=windows)
-![Linux](https://img.shields.io/badge/Linux-coming%20soon-8b8f99?logo=linux&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-beta-3ddc84?logo=linux&logoColor=white)
 
 [![Download for Windows](https://custom-icon-badges.demolab.com/badge/-Download-blue?style=for-the-badge&logo=download&logoColor=white)](https://github.com/ge0rg3e/openperipherals/releases/latest/download/openperipherals-amd64-installer.exe)
 
@@ -59,11 +59,40 @@ One keyboard and one mouse are controlled at a time. Devices are detected automa
 | Platform        | Status         |
 | --------------- | -------------- |
 | Windows 10 / 11 | ✅ Supported   |
-| Linux           | 🚧 Coming soon |
+| Linux (x86-64)  | Beta. Some features depend on kernel drivers, device permissions or desktop session. |
 
 ## Download
 
-Get the latest build from the [Releases](../../releases) page: `openperipherals-amd64-installer.exe` installs the app (and WebView2 if needed).
+Get the latest build from the [Releases](../../releases) page. On Windows, run `openperipherals-amd64-installer.exe` to install the app and WebView2 if needed.
+
+### Linux
+
+Download and extract `openperipherals-linux-amd64.tar.gz` to a permanent location. On Ubuntu 24.04, install the desktop runtime and the included udev rules:
+
+```sh
+sudo apt install libgtk-3-0t64 libwebkit2gtk-4.1-0
+sudo install -m 0644 70-openperipherals.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+```
+
+Reconnect your peripherals after reloading the rules, then run `./openperipherals` as your regular desktop user. The rules grant HID access to the active local desktop session. If a device is missing, reconnect it after installing the rules and use **Rescan devices**. **Settings → Start at login** opens the app when you sign in. Closing the window quits the app on Linux.
+
+- **Fan control:** Uses writable kernel `hwmon` PWM channels that start in automatic mode. Fixed speeds, temperature curves and presets are available for these channels. Configure access only to the PWM and mode attributes for the channels you want to control. The app restores the original mode when you select Auto or quit, with a watchdog that attempts restoration if the app crashes.
+- **GPU telemetry:** Uses the AMD kernel driver's utilization and VRAM readings or `nvidia-smi` from the NVIDIA driver.
+- **Key blocking:** Install `evsieve` and enable `uinput`. The app needs read access to the selected keyboard's event nodes under `/dev/input/by-id` and write access to `/dev/uinput`. The bundled HID rule covers RGB and DPI. Configure input permissions separately, limited to the keyboard you want to filter.
+- **Live wallpaper:** Local MP4 playback uses `mpvpaper` on compatible Wayland compositors or `xwinwrap` and `mpv` on X11. You can pause or resume playback in the Wallpaper page. HTML, web page sources and automatic pause controls are Windows features.
+- **Updates:** The app checks for signed updates from tagged Linux releases. Extract it to a directory you can write to so it can replace the executable.
+
+To build on Ubuntu 24.04, install Go (see `go.mod`), Node.js 22.12+ and the native development libraries:
+
+```sh
+sudo apt install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libx11-dev
+npm --prefix frontend ci
+npm --prefix frontend run build
+go test -tags 'production gtk3' ./...
+mkdir -p bin
+go build -tags 'production gtk3' -o bin/openperipherals .
+```
 
 ## Credits
 

@@ -13,12 +13,6 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
-
-	"openperipherals/internal/nvgpu"
-	"openperipherals/internal/pawnio"
-	"openperipherals/internal/superio"
 )
 
 const (
@@ -29,77 +23,29 @@ const (
 	rampDownPerTick = 2
 )
 
-// FanConfig is how one fan is driven.
-type FanConfig struct {
-	Mode   string   `json:"mode"` // "auto", "fixed" or "curve"
-	Fixed  int      `json:"fixed"`
-	Sensor string   `json:"sensor"`
-	Points [][2]int `json:"points"` // (°C, %) pairs, sorted by temperature
-}
-
-// Fan is one controllable fan as shown in the UI.
-type Fan struct {
-	ID      string    `json:"id"`
-	Name    string    `json:"name"`
-	Source  string    `json:"source"`
-	RPM     int       `json:"rpm"`  // -1 when the fan has no tachometer
-	Duty    int       `json:"duty"` // -1 while firmware controls it
-	MinDuty int       `json:"minDuty"`
-	Config  FanConfig `json:"config"`
-}
-
-// TempSensor is a temperature a curve can follow.
-type TempSensor struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Temp int    `json:"temp"` // -1 when unavailable
-}
-
-// FanPreset is a named set of fan configs that can be applied at once.
-type FanPreset struct {
-	ID      string           `json:"id"`
-	Name    string           `json:"name"`
-	Builtin bool             `json:"builtin"`
-	Configs []FanPresetEntry `json:"configs"`
-}
-
-// FanPresetEntry is the config a preset applies to one fan.
-type FanPresetEntry struct {
-	FanID  string    `json:"fanId"`
-	Config FanConfig `json:"config"`
-}
-
-// FanStatus is the fan page snapshot.
-type FanStatus struct {
-	Available bool         `json:"available"`
-	Notice    string       `json:"notice"` // why motherboard fans are missing, if they are
-	Elevated  bool         `json:"elevated"`
-	Fans      []Fan        `json:"fans"`
-	Sensors   []TempSensor `json:"sensors"`
-	Presets   []FanPreset  `json:"presets"`
-}
-
 type fanDev struct {
 	Fan
-	set     func(int) error
-	restore func() error
-	applied int // last duty written, -1 when in auto
+	preferredSensor string
+	set             func(int) error
+	restore         func() error
+	applied         int // last duty written, -1 when in auto
+	restorePending  bool
 }
 
 // FanService detects fans and runs the control loop.
 type FanService struct {
-	mu         sync.Mutex
-	chip       *superio.Chip
-	gpus       []*nvgpu.GPU
-	fans       []*fanDev
-	sensors    []TempSensor
-	cfg        map[string]FanConfig
-	presets    []FanPreset // custom presets, built-ins are generated
-	path       string
-	presetPath string
-	notice     string
-	stop       chan struct{}
-	done       chan struct{}
+	mu           sync.Mutex
+	hardware     fanHardware
+	fans         []*fanDev
+	sensors      []TempSensor
+	cfg          map[string]FanConfig
+	presets      []FanPreset // custom presets, built-ins are generated
+	path         string
+	presetPath   string
+	notice       string
+	controlError string
+	stop         chan struct{}
+	done         chan struct{}
 }
 
 func (f *FanService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
@@ -116,6 +62,7 @@ func (f *FanService) ServiceStartup(ctx context.Context, _ application.ServiceOp
 		}
 	}
 	f.detect()
+	f.loadFanConfigs()
 	f.stop, f.done = make(chan struct{}), make(chan struct{})
 	go f.loop()
 	return nil
@@ -127,79 +74,17 @@ func (f *FanService) ServiceShutdown() error {
 	<-f.done
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	var restoreErr error
 	for _, d := range f.fans {
-		d.restore()
+		if err := d.restore(); err != nil {
+			restoreErr = errors.Join(restoreErr, fmt.Errorf("restore %s: %w", d.Name, err))
+		}
 	}
-	if f.chip != nil {
-		f.chip.Close()
-	}
-	for _, g := range f.gpus {
-		g.Close()
-	}
-	return nil
+	f.closeHardware()
+	return restoreErr
 }
 
-func (f *FanService) detect() {
-	switch {
-	case !pawnio.Installed():
-		f.notice = "Motherboard fans need the PawnIO driver (pawnio.eu)."
-	case !elevated():
-		f.notice = "Motherboard fans need administrator rights."
-	default:
-		chip, err := superio.Detect()
-		if err != nil {
-			f.notice = "Motherboard fans: " + err.Error()
-			break
-		}
-		f.chip = chip
-		fanNames, tempNames := superio.Labels(boardName())
-		r, _ := chip.Read()
-		for i := range chip.Controls {
-			name := fmt.Sprintf("Fan #%d", i+1)
-			if fanNames != nil {
-				n, ok := fanNames[i]
-				if !ok {
-					continue
-				}
-				name = n
-			}
-			f.fans = append(f.fans, &fanDev{
-				Fan:     Fan{ID: fmt.Sprintf("mb:%d", i), Name: name, Source: chip.Name, MinDuty: mbMinDuty},
-				set:     func(d int) error { return chip.SetDuty(i, d) },
-				restore: func() error { return chip.Restore(i) },
-				applied: -1,
-			})
-		}
-		for i, t := range r.Temps {
-			name := fmt.Sprintf("Temperature #%d", i+1)
-			if tempNames != nil {
-				n, ok := tempNames[i]
-				if !ok {
-					continue
-				}
-				name = n
-			} else if t < 0 {
-				continue
-			}
-			f.sensors = append(f.sensors, TempSensor{ID: fmt.Sprintf("mb:t%d", i), Name: name, Temp: t})
-		}
-	}
-
-	if gpus, err := nvgpu.Enumerate(); err == nil {
-		f.gpus = gpus
-		for gi, g := range gpus {
-			f.sensors = append(f.sensors, TempSensor{ID: fmt.Sprintf("gpu%d", gi), Name: g.Name, Temp: -1})
-			for c := range g.Coolers {
-				f.fans = append(f.fans, &fanDev{
-					Fan:     Fan{ID: fmt.Sprintf("gpu%d:%d", gi, c), Name: "GPU Fan", Source: g.Name, MinDuty: g.MinDuty[c]},
-					set:     func(d int) error { return g.SetDuty(c, d) },
-					restore: func() error { return g.Restore(c) },
-					applied: -1,
-				})
-			}
-		}
-	}
-
+func (f *FanService) loadFanConfigs() {
 	for _, d := range f.fans {
 		c, ok := f.cfg[d.ID]
 		if !ok {
@@ -223,6 +108,11 @@ func defaultFanPoints() [][2]int {
 // defaultSensor picks the CPU sensor for motherboard fans and the GPU's own
 // temperature for GPU fans.
 func (f *FanService) defaultSensor(fanID string) string {
+	for _, fan := range f.fans {
+		if fan.ID == fanID && fan.preferredSensor != "" {
+			return fan.preferredSensor
+		}
+	}
 	if gpu, _, ok := strings.Cut(fanID, ":"); ok && strings.HasPrefix(gpu, "gpu") {
 		return gpu
 	}
@@ -259,26 +149,8 @@ func (f *FanService) loop() {
 
 // tick reads every sensor, then drives each fan from its config.
 func (f *FanService) tick() {
-	temps := map[string]int{}
-	var mbRPM, mbDuty []int
-	if f.chip != nil {
-		if r, err := f.chip.Read(); err == nil {
-			for i, t := range r.Temps {
-				temps[fmt.Sprintf("mb:t%d", i)] = t
-			}
-			mbRPM, mbDuty = r.FanRPM, r.Duty
-		}
-	}
-	gpuDuty := map[string][]int{}
-	for gi, g := range f.gpus {
-		id := fmt.Sprintf("gpu%d", gi)
-		if t, err := g.Temperature(); err == nil {
-			temps[id] = t
-		} else {
-			temps[id] = -1
-		}
-		gpuDuty[id], _ = g.Duty()
-	}
+	temps := f.readHardware()
+	f.controlError = ""
 	for i := range f.sensors {
 		if t, ok := temps[f.sensors[i].ID]; ok {
 			f.sensors[i].Temp = t
@@ -292,23 +164,6 @@ func (f *FanService) tick() {
 	}
 
 	for _, d := range f.fans {
-		d.RPM, d.Duty = -1, -1
-		var idx int
-		if gpu, c, ok := strings.Cut(d.ID, ":"); ok && strings.HasPrefix(gpu, "gpu") {
-			fmt.Sscanf(c, "%d", &idx)
-			if duty := gpuDuty[gpu]; idx < len(duty) {
-				d.Duty = duty[idx]
-			}
-		} else {
-			fmt.Sscanf(strings.TrimPrefix(d.ID, "mb:"), "%d", &idx)
-			if idx < len(mbRPM) {
-				d.RPM = mbRPM[idx]
-			}
-			if idx < len(mbDuty) {
-				d.Duty = mbDuty[idx]
-			}
-		}
-
 		target := -1
 		switch c := d.Config; c.Mode {
 		case "fixed":
@@ -328,16 +183,24 @@ func (f *FanService) tick() {
 			target = 100
 		}
 		if target < 0 {
-			if d.applied >= 0 {
-				d.restore()
-				d.applied = -1
+			if d.restorePending {
+				if err := d.restore(); err == nil {
+					d.applied = -1
+					d.restorePending = false
+				} else {
+					f.controlError = fmt.Sprintf("Could not restore %s: %v", d.Name, err)
+				}
 			}
 			continue
 		}
 		target = min(max(target, d.MinDuty), 100)
 		if target != d.applied {
+			d.restorePending = true
 			if err := d.set(target); err == nil {
 				d.applied = target
+			} else {
+				d.applied = -1
+				f.controlError = fmt.Sprintf("Could not control %s: %v", d.Name, err)
 			}
 		}
 	}
@@ -370,7 +233,10 @@ func (f *FanService) Status() FanStatus {
 }
 
 func (f *FanService) statusLocked() FanStatus {
-	st := FanStatus{Available: f.chip != nil || len(f.gpus) > 0, Notice: f.notice, Elevated: elevated()}
+	st := FanStatus{Available: len(f.fans) > 0, Notice: f.notice, Elevated: elevated()}
+	if f.controlError != "" {
+		st.Notice = f.controlError
+	}
 	for _, d := range f.fans {
 		st.Fans = append(st.Fans, d.Fan)
 	}
@@ -577,36 +443,6 @@ func cloneConfig(c FanConfig) FanConfig {
 	return c
 }
 
-// relaunchElevated is set by RestartAsAdmin and acted on after shutdown,
-// once the single-instance lock is released. relaunchArgs carries a one-time
-// setup flag for the elevated copy.
-var (
-	relaunchElevated bool
-	relaunchArgs     []string
-)
-
-// RestartAsAdmin quits and relaunches the app elevated so motherboard fans
-// can be controlled.
-func (f *FanService) RestartAsAdmin() {
-	relaunchElevated = true
-	relaunchArgs = nil
-	application.Get().Quit()
-}
-
-func relaunchAsAdmin(args ...string) {
-	exe, err := os.Executable()
-	if err != nil {
-		return
-	}
-	verb, _ := windows.UTF16PtrFromString("runas")
-	file, _ := windows.UTF16PtrFromString(exe)
-	var params *uint16
-	if len(args) > 0 {
-		params, _ = windows.UTF16PtrFromString(strings.Join(args, " "))
-	}
-	windows.ShellExecute(0, verb, file, params, nil, windows.SW_SHOWNORMAL)
-}
-
 func (f *FanService) save() {
 	if f.path == "" {
 		return
@@ -625,18 +461,4 @@ func (f *FanService) savePresets() {
 	if b, err := json.MarshalIndent(f.presets, "", "  "); err == nil {
 		os.WriteFile(f.presetPath, b, 0o644)
 	}
-}
-
-func elevated() bool {
-	return windows.GetCurrentProcessToken().IsElevated()
-}
-
-func boardName() string {
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `HARDWARE\DESCRIPTION\System\BIOS`, registry.QUERY_VALUE)
-	if err != nil {
-		return ""
-	}
-	defer k.Close()
-	v, _, _ := k.GetStringValue("BaseBoardProduct")
-	return v
 }

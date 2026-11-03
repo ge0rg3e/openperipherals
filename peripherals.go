@@ -147,7 +147,7 @@ func (s *PeripheralService) ServiceStartup(ctx context.Context, _ application.Se
 		}
 	}
 	s.migrateKeys()
-	if err := s.applyBlocking(s.cfg.DisabledKeys); err != nil {
+	if err := s.startBlocking(); err != nil {
 		return fmt.Errorf("key blocking: %w", err)
 	}
 	s.stop = make(chan struct{})

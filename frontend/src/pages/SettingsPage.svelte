@@ -1,4 +1,6 @@
 <script lang="ts">
+  import {System} from "@wailsio/runtime";
+  const windowsDesktop = System.IsWindows();
   import {onMount} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {PeripheralService} from "../../bindings/openperipherals";
@@ -22,7 +24,7 @@
     try {
       await PeripheralService.SetAutostart(next);
       autostart = next;
-      autostartElevated = next;
+      autostartElevated = windowsDesktop && next;
     } catch (e) {
       notify(e);
     } finally {
@@ -55,10 +57,12 @@
     <h3 class="mb-2 text-sm font-semibold tracking-tight">Startup</h3>
     <div class="grid gap-2">
       <div class="flex w-full items-center justify-between gap-3 border-b border-border py-2.5 text-left text-sm">
-        <span>Start with Windows (as administrator)</span>
-        <Switch label="Start with Windows as administrator" checked={autostart} disabled={busy} onchange={toggleAutostart} />
+        <span>{windowsDesktop ? "Start with Windows (as administrator)" : "Start at login"}</span>
+        <Switch label={windowsDesktop ? "Start with Windows as administrator" : "Start at login"} checked={autostart} disabled={busy} onchange={toggleAutostart} />
       </div>
-      {#if autostart && !autostartElevated}
+      {#if !windowsDesktop}
+        <p class="text-xs leading-relaxed text-muted-foreground">Opens OpenPeripherals when you sign in.</p>
+      {:else if autostart && !autostartElevated}
         <div class="flex flex-wrap items-center justify-between gap-3 border-l-2 border-amber-400 bg-amber-500/5 px-3 py-2.5 text-sm text-amber-100">
           <span>Windows currently starts an unelevated copy, so cooling asks for a restart each time.</span>
           <Button variant="outline" onclick={fixStartup} disabled={busy}>Fix startup</Button>

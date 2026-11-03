@@ -1,4 +1,6 @@
 <script lang="ts">
+  import {System} from "@wailsio/runtime";
+  const windowsDesktop = System.IsWindows();
   import {Button} from "$lib/components/ui/button";
   import PageHeader from "../ui/PageHeader.svelte";
   import EffectPreview from "../ui/EffectPreview.svelte";
@@ -86,7 +88,7 @@
         <div class="border-b border-border px-2 py-1.5 text-xs font-semibold">{pick.id === "dial" ? "Dial" : pick.label}</div>
         {#each actions as a (a.id)}
           {#if a.code === null}
-            <p class="p-2 text-xs leading-relaxed text-muted-foreground">Fn is handled inside the keyboard and never reaches Windows, so it can't be disabled.</p>
+            <p class="p-2 text-xs leading-relaxed text-muted-foreground">Fn is handled inside the keyboard and never reaches the operating system, so it can't be disabled.</p>
           {:else}
             {@const off = a.id in app.disabled}
             <Button variant="ghost" class="flex w-full items-center justify-between gap-3 rounded-md border-0 bg-transparent px-2 py-2 text-left text-xs hover:bg-muted" onclick={() => setKeyDisabled(a.id, a.code!, !off)}>
@@ -194,7 +196,7 @@
         <p class="text-xs leading-relaxed text-muted-foreground">Click a key{kb.media ? " or the dial" : ""} on the keyboard above to disable it.</p>
       {/if}
       <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
-        {kb.media ? "The dial and media keys are" : "Media keys are"} blocked only on this keyboard. {disabledIds.some((id) => !isMediaKey(id)) ? "Regular keys are blocked on every keyboard, since Windows doesn't say which keyboard they came from. " : ""}Works while the app runs, including from the tray.
+        {#if windowsDesktop}{kb.media ? "The dial and media keys are" : "Media keys are"} blocked only on this keyboard. {disabledIds.some((id) => !isMediaKey(id)) ? "Regular keys are blocked on every keyboard, since Windows doesn't say which keyboard they came from. " : ""}Works while the app runs, including from the tray.{:else}Key blocking applies to the connected keyboard while the app runs. Linux requires evsieve and access to the keyboard event devices and /dev/uinput.{/if}
       </p>
     </section>
   </div>

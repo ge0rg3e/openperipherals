@@ -1,4 +1,4 @@
-# Builds and publishes a Windows release when a version tag such as v0.2.0 is pushed.
+# Builds and publishes a Windows release when a version tag is pushed. Linux also builds on pull requests.
 #
 # Uses the Wails build pipeline (https://v3.wails.io, "Building" and
 # "Windows" guides): `wails3 package` runs build/windows/Taskfile.yml, which
@@ -7,6 +7,7 @@
 name: Build
 
 on:
+  pull_request:
   push:
     tags: ["v*"]
 
@@ -15,6 +16,7 @@ permissions:
 
 jobs:
   windows:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     permissions:
       contents: write # for publishing releases on tags
@@ -93,3 +95,88 @@ jobs:
             bin/openperipherals-updater-windows-amd64.exe
             bin/manifest.json
           generate_release_notes: true
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libx11-dev
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run check
+          npm run build
+
+      - name: Test and build
+        run: |
+          go test -tags 'production gtk3' ./...
+          mkdir -p bin
+          version=0.0.1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          go build -tags 'production gtk3' -trimpath -ldflags "-X main.currentVersion=$version" -o bin/openperipherals .
+
+      - name: Package
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp build/linux/70-openperipherals.rules README.md LICENSE bin/
+          tar -C bin -czf bin/openperipherals-linux-amd64.tar.gz openperipherals 70-openperipherals.rules README.md LICENSE
+          cp bin/openperipherals bin/openperipherals-updater-linux-amd64
+
+      - name: Sign Linux updater manifest
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          WAILS_UPDATER_PRIVATE_KEY: ${{ secrets.WAILS_UPDATER_PRIVATE_KEY }}
+        run: |
+          go install -tags gtk3 "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          umask 077
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "${WAILS_UPDATER_PRIVATE_KEY:?Missing updater key}" > "$key"
+          wails3 updater manifest -version "${GITHUB_REF_NAME#v}" -key "$key" \
+            -url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/" \
+            -output bin/manifest-linux.json bin/openperipherals-updater-linux-amd64
+
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: openperipherals-linux-amd64
+          path: |
+            bin/openperipherals-linux-amd64.tar.gz
+            bin/openperipherals-updater-linux-amd64
+            bin/manifest-linux.json
+
+  linux-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: openperipherals-linux-amd64
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            openperipherals-linux-amd64.tar.gz
+            openperipherals-updater-linux-amd64
+            manifest-linux.json

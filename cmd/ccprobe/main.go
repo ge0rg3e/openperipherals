@@ -1,3 +1,5 @@
+//go:build windows
+
 // Command ccprobe prints media key presses from every Razer consumer-control
 // collection for 15 seconds, to check what the keyboard's dial and media keys
 // report (and from which collection).

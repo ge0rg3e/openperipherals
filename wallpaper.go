@@ -1,3 +1,5 @@
+//go:build windows
+
 package main
 
 import (
@@ -17,14 +19,6 @@ import (
 	"golang.org/x/sys/windows"
 	"openperipherals/internal/wallpaper"
 )
-
-type WallpaperStatus struct {
-	Config      wallpaper.Config `json:"config"`
-	Phase       string           `json:"phase"`
-	Reason      string           `json:"reason"`
-	ManualPause bool             `json:"manualPause"`
-	Snapshot    bool             `json:"snapshot"`
-}
 
 type wallpaperProcess struct {
 	cmd     *exec.Cmd

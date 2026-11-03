@@ -1,3 +1,5 @@
+//go:build windows
+
 // Package superio reads and controls motherboard fan headers on ITE IT86xx /
 // IT87xx Super I/O chips through PawnIO's LpcIO module. Register layout and
 // detection follow LibreHardwareMonitor's IT87XX implementation.

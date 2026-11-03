@@ -1,4 +1,5 @@
 <script lang="ts">
+  import {System} from "@wailsio/runtime";
   import {Badge} from "$lib/components/ui/badge";
   import {Button} from "$lib/components/ui/button";
   import {Input} from "$lib/components/ui/input";
@@ -170,7 +171,7 @@
   {#if app.fans.notice}
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
       <span>{app.fans.notice}</span>
-      {#if !app.fans.elevated}
+      {#if System.IsWindows() && !app.fans.elevated}
         <span class="flex flex-wrap gap-2">
           <Button variant="outline" onclick={() => FanService.RestartAsAdmin().catch(notify)}
             >Restart as administrator</Button

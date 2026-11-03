@@ -1,0 +1,18 @@
+# Grant the active local session access to HID interfaces used by OpenPeripherals.
+ACTION=="remove", GOTO="openperipherals_end"
+SUBSYSTEM!="hidraw", GOTO="openperipherals_end"
+
+# Match the HID parent by bus:vendor:product.instance (USB and Bluetooth).
+KERNELS=="*:1532:*", TAG+="uaccess"
+KERNELS=="*:1B1C:*", TAG+="uaccess"
+KERNELS=="*:046D:*", TAG+="uaccess"
+KERNELS=="*:3710:*", TAG+="uaccess"
+KERNELS=="*:3554:*", TAG+="uaccess"
+
+# Sonix's vendor ID is shared by unrelated devices.
+KERNELS=="*:0C45:5004.*", TAG+="uaccess"
+KERNELS=="*:0C45:5104.*", TAG+="uaccess"
+KERNELS=="*:0C45:5204.*", TAG+="uaccess"
+KERNELS=="*:0C45:672E.*", TAG+="uaccess"
+
+LABEL="openperipherals_end"

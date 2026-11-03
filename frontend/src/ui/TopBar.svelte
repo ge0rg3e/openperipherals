@@ -2,12 +2,13 @@
   // Custom title bar for the frameless window: drag anywhere empty to move,
   // double-click to maximise. Close hides to the tray like the native button.
   import {onMount} from "svelte";
-  import {Window} from "@wailsio/runtime";
+  import {System, Window} from "@wailsio/runtime";
   import {Button} from "$lib/components/ui/button";
   import Icon from "./Icon.svelte";
   import {FanService} from "../../bindings/openperipherals";
   import {app, notify, rescan, type View} from "../lib/store.svelte";
 
+  const windowsDesktop = System.IsWindows();
   const tabs: {view: View; label: string; icon: "home" | "fan" | "image" | "gear"}[] = [
     {view: "home", label: "Home", icon: "home"},
     {view: "cooling", label: "Cooling", icon: "fan"},
@@ -26,7 +27,7 @@
 
   // Fan control problems stay visible from every page.
   const fanNotice = $derived(app.fans?.notice ?? "");
-  const needsAdmin = $derived(!!fanNotice && app.fans?.elevated === false);
+  const needsAdmin = $derived(windowsDesktop && !!fanNotice && app.fans?.elevated === false);
   function fixFans() {
     if (needsAdmin) FanService.RestartAsAdmin().catch(notify);
     else app.view = "cooling";
@@ -58,7 +59,7 @@
   </nav>
 
   <div class="ml-auto flex h-full items-center gap-1 px-2" style="--wails-draggable: no-drag">
-    {#if fanNotice}
+    {#if windowsDesktop && fanNotice}
       <Button variant="outline" class="inline-flex h-8 items-center gap-2 rounded-md border border-amber-500/25 bg-amber-500/10 px-2.5 text-xs text-amber-200 max-[680px]:[&_span]:hidden" title={needsAdmin ? `${fanNotice} Click to restart as administrator.` : fanNotice} onclick={fixFans}>
         <Icon name="shield" size={14} />
         <span>{needsAdmin ? "Fans need admin" : "Fan control unavailable"}</span>

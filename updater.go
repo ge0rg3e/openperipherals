@@ -13,19 +13,24 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/endpoint"
 )
 
-// currentVersion is set from the release tag by the Windows packaging task.
+// currentVersion is set from the release tag by the packaging workflow.
 var currentVersion = "0.0.1"
 
 //go:embed updater.key.pub
 var updaterPublicKey []byte
 
 func setupUpdater(app *application.App) bool {
-	if runtime.GOOS != "windows" {
+	manifest := "manifest.json"
+	switch runtime.GOOS {
+	case "linux":
+		manifest = "manifest-linux.json"
+	case "windows":
+	default:
 		return false
 	}
 
 	provider, err := endpoint.New(endpoint.Config{
-		URL: "https://github.com/ge0rg3e/openperipherals/releases/latest/download/manifest.json",
+		URL: "https://github.com/ge0rg3e/openperipherals/releases/latest/download/" + manifest,
 	})
 	if err != nil {
 		log.Printf("update provider: %v", err)
