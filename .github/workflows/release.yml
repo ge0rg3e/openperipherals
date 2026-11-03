@@ -87,6 +87,7 @@ jobs:
 
       - name: Package
         run: |
+          sh -n install.sh
           cp build/linux/70-openperipherals.rules README.md LICENSE bin/
           tar -C bin -czf bin/openperipherals-linux-amd64.tar.gz openperipherals 70-openperipherals.rules README.md LICENSE
           cp bin/openperipherals bin/openperipherals-updater-linux-amd64
