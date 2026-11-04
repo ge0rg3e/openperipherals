@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"openperipherals/internal/appdata"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -187,11 +189,11 @@ func relaunchThroughTask() bool {
 }
 
 func showRequestPath() string {
-	dir, err := os.UserCacheDir()
+	dir, err := appdata.Dir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "openperipherals", "show")
+	return filepath.Join(dir, "show")
 }
 
 func requestShowOnNextLaunch() error {

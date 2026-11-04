@@ -12,6 +12,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"openperipherals/internal/appdata"
 	"openperipherals/internal/corsair"
 	"openperipherals/internal/hid"
 	"openperipherals/internal/keyblock"
@@ -140,8 +141,8 @@ type PeripheralService struct {
 func (s *PeripheralService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	s.cfg.Keyboard = KeyboardLighting{Effect: "spectrum", Color: "#00ff88", Color2: "#0066ff", Mode: "single", Speed: 2, Direction: "right"}
 	s.cfg.Sync = SyncLighting{Effect: "static", Color: "#33e19a"}
-	if dir, err := os.UserConfigDir(); err == nil {
-		s.path = filepath.Join(dir, "openperipherals", "config.json")
+	if dir, err := appdata.Dir(); err == nil {
+		s.path = filepath.Join(dir, "config.json")
 		if b, err := os.ReadFile(s.path); err == nil {
 			json.Unmarshal(b, &s.cfg)
 		}

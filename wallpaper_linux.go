@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"openperipherals/internal/appdata"
 	"openperipherals/internal/wallpaper"
 )
 
@@ -25,8 +26,8 @@ type WallpaperService struct {
 func (s *WallpaperService) ServiceStartup(context.Context, application.ServiceOptions) error {
 	s.status = WallpaperStatus{Config: wallpaper.DefaultConfig(), Phase: "stopped"}
 	s.status.Config.Kind = "video"
-	if dir, err := os.UserConfigDir(); err == nil {
-		s.path = filepath.Join(dir, "openperipherals", "wallpaper-linux.json")
+	if dir, err := appdata.Dir(); err == nil {
+		s.path = filepath.Join(dir, "wallpaper-linux.json")
 		if b, err := os.ReadFile(s.path); err == nil {
 			var cfg wallpaper.Config
 			if json.Unmarshal(b, &cfg) == nil && cfg.Kind == "video" {

@@ -14,7 +14,7 @@ import (
 )
 
 // currentVersion is set from the release tag by the packaging workflow.
-var currentVersion = "0.0.1"
+var currentVersion = "0.0.2"
 
 //go:embed updater.key.pub
 var updaterPublicKey []byte

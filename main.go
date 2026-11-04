@@ -6,6 +6,8 @@ import (
 	"os"
 	"slices"
 
+	"openperipherals/internal/appdata"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -29,6 +31,14 @@ func main() {
 		return
 	}
 
+	dataDir, err := appdata.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := configureWebviewStorage(dataDir); err != nil {
+		log.Fatal(err)
+	}
+
 	fans := &FanService{}
 	devices := &PeripheralService{}
 	wallpapers := &WallpaperService{}
@@ -49,6 +59,7 @@ func main() {
 		// Key blocking must keep running after the window is closed.
 		Windows: application.WindowsOptions{
 			DisableQuitOnLastWindowClosed: true,
+			WebviewUserDataPath:           dataDir,
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "com.openperipherals.app",

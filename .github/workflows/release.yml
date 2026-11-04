@@ -79,7 +79,7 @@ jobs:
         run: |
           go test -tags 'production gtk3' ./...
           mkdir -p bin
-          version=0.0.1
+          version=0.0.2
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
           fi

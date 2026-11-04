@@ -17,6 +17,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/sys/windows"
+	"openperipherals/internal/appdata"
 	"openperipherals/internal/wallpaper"
 )
 
@@ -42,8 +43,8 @@ type WallpaperService struct {
 func (s *WallpaperService) ServiceStartup(context.Context, application.ServiceOptions) error {
 	s.cfg = wallpaper.DefaultConfig()
 	s.state = wallpaper.State{Phase: "stopped"}
-	if dir, err := os.UserConfigDir(); err == nil {
-		s.path = filepath.Join(dir, "openperipherals", "wallpaper.json")
+	if dir, err := appdata.Dir(); err == nil {
+		s.path = filepath.Join(dir, "wallpaper.json")
 		if data, err := os.ReadFile(s.path); err == nil {
 			if err = json.Unmarshal(data, &s.cfg); err != nil {
 				s.cfg = wallpaper.DefaultConfig()

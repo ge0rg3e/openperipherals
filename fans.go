@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"openperipherals/internal/appdata"
 )
 
 const (
@@ -50,8 +51,7 @@ type FanService struct {
 
 func (f *FanService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	f.cfg = map[string]FanConfig{}
-	if dir, err := os.UserConfigDir(); err == nil {
-		dir = filepath.Join(dir, "openperipherals")
+	if dir, err := appdata.Dir(); err == nil {
 		f.path = filepath.Join(dir, "fans.json")
 		if b, err := os.ReadFile(f.path); err == nil {
 			json.Unmarshal(b, &f.cfg)

@@ -30,7 +30,7 @@ tasks:
     vars:
       # Default to CGO_ENABLED=0 if not explicitly set
       CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
-      VERSION: '{{.VERSION | default "0.0.1"}}'
+      VERSION: '{{.VERSION | default "0.0.2"}}'
 
   build:native:
     summary: Builds the application using native Go cross-compilation
@@ -106,7 +106,7 @@ tasks:
     vars:
       FORMAT: '{{.FORMAT | default "nsis"}}'
       INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
-      VERSION: '{{.VERSION | default "0.0.1"}}'
+      VERSION: '{{.VERSION | default "0.0.2"}}'
 
   generate:syso:
     summary: Generates Windows `.syso` file

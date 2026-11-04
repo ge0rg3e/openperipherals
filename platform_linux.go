@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
@@ -41,3 +42,12 @@ func launchOptions(args []string) (exit, hidden bool) {
 }
 
 func postShutdown() {}
+
+func configureWebviewStorage(dir string) error {
+	// Wails uses WebKitGTK's default profile. Set its XDG bases for this
+	// process before GTK starts. Settings still use XDG_CONFIG_HOME.
+	if err := os.Setenv("XDG_DATA_HOME", filepath.Join(dir, "webview", "data")); err != nil {
+		return err
+	}
+	return os.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "webview", "cache"))
+}

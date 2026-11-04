@@ -6,12 +6,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
+
+	"openperipherals/internal/appdata"
 
 	"github.com/wailsapp/go-webview2/pkg/edge"
 	"github.com/wailsapp/wails/v3/pkg/w32"
@@ -156,11 +157,11 @@ func (h *host) create(className *uint16, instance w32.HINSTANCE) error {
 	h.emit("loading", "Starting wallpaper")
 	b := edge.NewChromium()
 	h.browser = b
-	dir, err := os.UserCacheDir()
+	dir, err := appdata.Dir()
 	if err != nil {
 		return err
 	}
-	b.DataPath = filepath.Join(dir, "openperipherals", "wallpaper-webview")
+	b.DataPath = filepath.Join(dir, "wallpaper-webview")
 	b.AdditionalBrowserArgs = []string{"--mute-audio", "--autoplay-policy=no-user-gesture-required", "--disable-background-networking"}
 	b.SetGlobalPermission(edge.CoreWebView2PermissionStateDeny)
 	b.SetErrorCallback(func(err error) {

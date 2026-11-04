@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"openperipherals/internal/wallpaper"
 	"os"
 	"slices"
+
+	"openperipherals/internal/wallpaper"
 )
 
 const windowsDesktop = true
+
+func configureWebviewStorage(string) error { return nil }
 
 func launchOptions(args []string) (exit, hidden bool) {
 	if slices.Contains(args, "--wallpaper-host") {
